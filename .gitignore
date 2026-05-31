@@ -1,0 +1,14 @@
+cloud_storage.db
+cloud_storage.db-shm
+cloud_storage.db-wal
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+storage/
+*.db
+fix_constraint.py
+fix_migration.py
+add_request_logs.py
+migrate.py

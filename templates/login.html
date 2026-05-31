@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRATA // LOGIN</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black:   #0a0a0a;
+      --white:   #f5f0e8;
+      --yellow:  #FFE000;
+      --magenta: #FF2D6B;
+      --green:   #00FF85;
+      --panel:   #f0ead8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Space Mono', monospace;
+      background-color: var(--black);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image:
+        linear-gradient(rgba(255,224,0,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,224,0,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .bebas { font-family: 'Bebas Neue', sans-serif; }
+    .card {
+      background: var(--panel);
+      border: 4px solid var(--yellow);
+      box-shadow: 10px 10px 0px var(--yellow);
+      width: 100%;
+      max-width: 440px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .card-header {
+      background: var(--black);
+      padding: 32px 36px 24px;
+      border-bottom: 4px solid var(--yellow);
+    }
+    .card-body { padding: 32px 36px; }
+    label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0.6;
+      margin-bottom: 6px;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      border: 3px solid var(--black);
+      background: var(--white);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      padding: 12px 14px;
+      outline: none;
+      box-shadow: 4px 4px 0 var(--black);
+      margin-bottom: 20px;
+      transition: box-shadow 0.1s;
+    }
+    input:focus {
+      box-shadow: 6px 6px 0 var(--black);
+    }
+    .btn-login {
+      width: 100%;
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--black);
+      box-shadow: 5px 5px 0 var(--black);
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 14px;
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .btn-login:hover  { transform: translate(2px,2px); box-shadow: 3px 3px 0 var(--black); }
+    .btn-login:active { transform: translate(5px,5px); box-shadow: 0px 0px 0 var(--black); }
+    .error-box {
+      background: var(--magenta);
+      color: white;
+      border: 3px solid var(--black);
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 12px 16px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      letter-spacing: 0.03em;
+    }
+    .hint-box {
+      background: var(--black);
+      border: 2px solid #333;
+      padding: 14px 16px;
+      margin-top: 20px;
+      font-size: 0.68rem;
+      color: #888;
+      line-height: 1.8;
+    }
+    .hint-box span { color: var(--green); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div style="width:100%;max-width:480px;padding:24px;">
+
+    <div class="card">
+
+      <!-- Header -->
+      <div class="card-header">
+        <div class="bebas" style="font-size:3.5rem;letter-spacing:0.15em;color:var(--yellow);line-height:1;">
+          STRATA
+        </div>
+        <div style="font-size:0.65rem;letter-spacing:0.25em;color:#888;margin-top:4px;">
+          MULTI-TENANT CLOUD STORAGE ENGINE
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+          <div style="width:8px;height:8px;background:var(--green);border:2px solid var(--black);"></div>
+          <span style="font-size:0.65rem;color:var(--green);font-weight:700;letter-spacing:0.15em;">
+            SECURE TENANT LOGIN
+          </span>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="card-body">
+
+        {% if error %}
+        <div class="error-box">
+          ✗ {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+
+          <label for="username">Tenant Username</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="e.g. alice_dev"
+            autocomplete="username"
+            required
+          />
+
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+
+          <button type="submit" class="btn-login">
+            ▶ ACCESS STORAGE CONSOLE
+          </button>
+
+        </form>
+
+        <!-- Dev hint — remove in production -->
+        <div class="hint-box">
+          <div style="color:var(--yellow);font-weight:700;letter-spacing:0.1em;margin-bottom:6px;">
+            DEV CREDENTIALS
+          </div>
+          <span>alice_dev</span> / <span>alice123</span><br/>
+          <span>bob_staging</span> / <span>bob456</span><br/>
+          <span>carol_prod</span> / <span>carol789</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;font-size:0.65rem;color:#444;letter-spacing:0.1em;">
+      EACH TENANT SEES ONLY THEIR OWN DATA
+    </div>
+
+  </div>
+</body>
+</html>
