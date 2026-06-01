@@ -1,15 +1,16 @@
 """
-Module 2 + 5 (v4): FastAPI — 4-Tier Storage + Request Charge Logging
-Every authenticated request is logged to request_logs with its operation class:
-  Class A (WRITE) : POST /upload              $0.005  per 1,000
-  Class B (READ)  : GET  /files, /files/{f}  $0.0004 per 1,000
-  FREE            : DELETE /files/{f}         $0.000
-
-Run with:
-    uvicorn main:app --reload
+STRATA v0.9.0 — main.py
+Feature added this step: Bucket/Namespace System
+  - PUT    /buckets/{name}   create bucket  (IBM COS equivalent)
+  - GET    /buckets          list buckets   (ListBuckets)
+  - GET    /buckets/{name}   list objects in bucket
+  - DELETE /buckets/{name}   delete empty bucket
+  - Upload now accepts a bucket= form field
+  - Download/delete now use /files/{bucket}/{filename} paths
 """
 
 import os
+import re
 import shutil
 import sqlite3
 import uuid
@@ -42,28 +43,18 @@ TIER_RATES = {
     "ARCHIVE": 0.000050,
 }
 TIER_STYLES = {
-    "HOT":     {"bg": "#FF2D6B", "color": "#fff", "label": "● HOT"},
-    "COOL":    {"bg": "#0057FF", "color": "#fff", "label": "● COOL"},
-    "COLD":    {"bg": "#00FFD1", "color": "#000", "label": "● COLD"},
-    "ARCHIVE": {"bg": "#888",    "color": "#fff", "label": "● ARCHIVE"},
+    "HOT":     {"bg": "#FF2D6B", "color": "#fff"},
+    "COOL":    {"bg": "#0057FF", "color": "#fff"},
+    "COLD":    {"bg": "#00FFD1", "color": "#000"},
+    "ARCHIVE": {"bg": "#888",    "color": "#fff"},
 }
-
-# Request charge rates
 REQUEST_RATES = {
-    "A":    0.005  / 1000,   # $0.005 per 1,000  Class A (write)
-    "B":    0.0004 / 1000,   # $0.0004 per 1,000 Class B (read)
-    "FREE": 0.0,             # free
+    "A":    0.005  / 1000,
+    "B":    0.0004 / 1000,
+    "FREE": 0.0,
 }
 
-# Endpoint → operation class mapping
-OP_CLASS_MAP = {
-    ("POST",   "/upload"):       "A",
-    ("GET",    "/files"):        "B",
-    ("GET",    "/files/"):       "B",   # prefix match for /files/{filename}
-    ("DELETE", "/files/"):       "FREE",
-}
-
-app = FastAPI(title="Multi-Tenant Cloud Storage Engine", version="0.8.0")
+app = FastAPI(title="STRATA — Multi-Tenant Cloud Storage Engine", version="0.9.0")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
 templates = Jinja2Templates(directory="templates")
 
@@ -82,58 +73,40 @@ def get_conn() -> sqlite3.Connection:
 # ---------------------------------------------------------------------------
 
 class RequestLoggerMiddleware(BaseHTTPMiddleware):
-    """
-    Intercepts every response. If the request was authenticated (session
-    has user_id) and the endpoint is a billable storage operation,
-    logs a row to request_logs.
-    """
-    LOGGABLE_PREFIXES = ["/upload", "/files"]
-
-    def classify(self, method: str, path: str) -> str | None:
-        if method == "POST"   and path == "/upload":
-            return "A"
-        if method == "GET"    and (path == "/files" or path.startswith("/files/")):
-            return "B"
-        if method == "DELETE" and path.startswith("/files/"):
-            return "FREE"
-        return None   # not a billable endpoint
+    def classify(self, method, path):
+        if method == "POST"   and path == "/upload":              return "A"
+        if method == "PUT"    and path.startswith("/buckets"):    return "A"
+        if method == "GET"    and path.startswith("/buckets"):    return "B"
+        if method == "GET"    and path.startswith("/files"):      return "B"
+        if method == "DELETE" and path.startswith("/files"):      return "FREE"
+        if method == "DELETE" and path.startswith("/buckets"):    return "FREE"
+        return None
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-
-        # Only log successful storage operations
         op_class = self.classify(request.method, request.url.path)
-        if op_class is None:
+        if op_class is None or response.status_code >= 400:
             return response
-        if response.status_code >= 400:
-            return response
-
         user_id = request.session.get("user_id")
         if not user_id:
             return response
-
         try:
             conn = get_conn()
             conn.execute(
-                """
-                INSERT INTO request_logs
-                       (user_id, endpoint, method, op_class, occurred_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
+                "INSERT INTO request_logs (user_id,endpoint,method,op_class,occurred_at) VALUES (?,?,?,?,?)",
                 (user_id, request.url.path, request.method,
                  op_class, datetime.utcnow().isoformat()),
             )
             conn.commit()
             conn.close()
         except Exception:
-            pass  # never let logging break the response
-
+            pass
         return response
 
 app.add_middleware(RequestLoggerMiddleware)
 
 # ---------------------------------------------------------------------------
-# Session auth dependency
+# Auth dependency
 # ---------------------------------------------------------------------------
 
 def get_session_user(request: Request) -> dict:
@@ -155,25 +128,29 @@ def get_session_user(request: Request) -> dict:
 SessionUser = Annotated[dict, Depends(get_session_user)]
 
 # ---------------------------------------------------------------------------
-# Storage helpers
+# Helpers
 # ---------------------------------------------------------------------------
 
-def tier_file_path(tier: str, username: str, filename: str) -> str:
-    return os.path.join(TIER_DIRS[tier], username, filename)
+def tier_file_path(tier: str, username: str, bucket: str, filename: str) -> str:
+    return os.path.join(TIER_DIRS[tier], username, bucket, filename)
+
+
+def get_bucket(conn, user_id: int, bucket_name: str):
+    row = conn.execute(
+        "SELECT * FROM buckets WHERE user_id=? AND name=?",
+        (user_id, bucket_name),
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def log_tier_event(conn, file_id, user_id, from_tier, to_tier, event_type, ts):
     conn.execute(
-        """
-        INSERT INTO tier_events
-               (file_id, user_id, from_tier, to_tier, event_type, occurred_at)
-        VALUES (?,?,?,?,?,?)
-        """,
+        "INSERT INTO tier_events (file_id,user_id,from_tier,to_tier,event_type,occurred_at) VALUES (?,?,?,?,?,?)",
         (file_id, user_id, from_tier, to_tier, event_type, ts),
     )
 
 
-def promote_to_hot(conn, row: dict, username: str, now_iso: str):
+def promote_to_hot(conn, row: dict, username: str, bucket: str, now_iso: str):
     current  = row["storage_tier"]
     file_id  = row["id"]
     user_id  = row["user_id"]
@@ -186,8 +163,8 @@ def promote_to_hot(conn, row: dict, username: str, now_iso: str):
         )
         return
 
-    src     = tier_file_path(current, username, filename)
-    dst_dir = os.path.join(TIER_DIRS["HOT"], username)
+    src     = tier_file_path(current, username, bucket, filename)
+    dst_dir = os.path.join(TIER_DIRS["HOT"], username, bucket)
     dst     = os.path.join(dst_dir, filename)
 
     if os.path.exists(src):
@@ -195,19 +172,13 @@ def promote_to_hot(conn, row: dict, username: str, now_iso: str):
         shutil.move(src, dst)
 
     conn.execute(
-        """
-        UPDATE files
-        SET    storage_tier     = 'HOT',
-               last_accessed_at = ?,
-               hot_entered_at   = ?
-        WHERE  id = ?
-        """,
+        "UPDATE files SET storage_tier='HOT', last_accessed_at=?, hot_entered_at=? WHERE id=?",
         (now_iso, now_iso, file_id),
     )
     log_tier_event(conn, file_id, user_id, current, "HOT", "PROMOTE", now_iso)
 
 # ---------------------------------------------------------------------------
-# GET /login  POST /login  GET /logout
+# AUTH
 # ---------------------------------------------------------------------------
 
 @app.get("/login", include_in_schema=False)
@@ -248,22 +219,429 @@ def logout(request: Request):
     return RedirectResponse(url="/login", status_code=302)
 
 # ---------------------------------------------------------------------------
-# GET /  — scoped dashboard
+# BUCKET ROUTES  ← NEW THIS STEP
+# ---------------------------------------------------------------------------
+
+@app.put(
+    "/buckets/{bucket_name}",
+    summary="Create a bucket",
+    description="IBM COS equivalent: PUT /bucket-name. Creates a named namespace.",
+)
+def create_bucket(bucket_name: str, current_user: SessionUser):
+    # Validate name: lowercase alphanumeric and hyphens, 3-63 chars
+    if not re.match(r'^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$', bucket_name):
+        raise HTTPException(
+            status_code=400,
+            detail="Bucket name must be 3-63 chars, lowercase alphanumeric and hyphens only.",
+        )
+
+    user_id = current_user["id"]
+    conn    = get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO buckets (user_id, name, created_at) VALUES (?,?,?)",
+            (user_id, bucket_name, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        # Create physical directories in all 4 tiers
+        for tier_dir in TIER_DIRS.values():
+            os.makedirs(
+                os.path.join(tier_dir, current_user["username"], bucket_name),
+                exist_ok=True,
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Bucket '{bucket_name}' already exists.",
+        )
+    finally:
+        conn.close()
+
+    return JSONResponse(status_code=201, content={
+        "message":    f"Bucket '{bucket_name}' created.",
+        "owner":      current_user["username"],
+        "bucket":     bucket_name,
+        "created_at": datetime.utcnow().isoformat(),
+    })
+
+
+@app.get(
+    "/buckets",
+    summary="List all buckets (ListBuckets)",
+    description="IBM COS equivalent: GET / — returns all buckets for the authenticated user.",
+)
+def list_buckets(current_user: SessionUser):
+    user_id = current_user["id"]
+    conn    = get_conn()
+    try:
+        buckets = conn.execute(
+            "SELECT id, name, created_at FROM buckets WHERE user_id=? ORDER BY created_at",
+            (user_id,),
+        ).fetchall()
+
+        result = []
+        for b in buckets:
+            stats = conn.execute(
+                """
+                SELECT COUNT(*) as cnt,
+                       COALESCE(SUM(file_size_mb), 0) as total_mb
+                FROM   files
+                WHERE  bucket_id=? AND user_id=?
+                """,
+                (b["id"], user_id),
+            ).fetchone()
+            result.append({
+                "name":       b["name"],
+                "created_at": b["created_at"],
+                "file_count": stats["cnt"],
+                "total_mb":   round(stats["total_mb"], 4),
+            })
+    finally:
+        conn.close()
+
+    return {
+        "owner":   current_user["username"],
+        "buckets": result,
+        "count":   len(result),
+    }
+
+
+@app.get(
+    "/buckets/{bucket_name}",
+    summary="List objects in a bucket",
+    description="IBM COS equivalent: GET /bucket-name (ListObjects).",
+)
+def list_bucket_objects(bucket_name: str, current_user: SessionUser):
+    user_id = current_user["id"]
+    conn    = get_conn()
+    try:
+        bucket = get_bucket(conn, user_id, bucket_name)
+        if bucket is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bucket '{bucket_name}' not found.",
+            )
+
+        objects = conn.execute(
+            """
+            SELECT id, filename, file_size_mb, storage_tier,
+                   created_at, last_accessed_at
+            FROM   files
+            WHERE  bucket_id=? AND user_id=?
+            ORDER  BY created_at DESC
+            """,
+            (bucket["id"], user_id),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return {
+        "bucket":  bucket_name,
+        "owner":   current_user["username"],
+        "objects": [dict(r) for r in objects],
+        "count":   len(objects),
+    }
+
+
+@app.delete(
+    "/buckets/{bucket_name}",
+    summary="Delete a bucket",
+    description="IBM COS equivalent: DELETE /bucket-name. Only deletes empty buckets.",
+)
+def delete_bucket(bucket_name: str, current_user: SessionUser):
+    user_id = current_user["id"]
+    conn    = get_conn()
+    try:
+        bucket = get_bucket(conn, user_id, bucket_name)
+        if bucket is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bucket '{bucket_name}' not found.",
+            )
+
+        # Enforce empty-bucket rule (matching IBM COS)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM files WHERE bucket_id=? AND user_id=?",
+            (bucket["id"], user_id),
+        ).fetchone()[0]
+
+        if count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Bucket '{bucket_name}' is not empty ({count} object(s)). "
+                       f"Delete all objects first.",
+            )
+
+        conn.execute("DELETE FROM buckets WHERE id=?", (bucket["id"],))
+        conn.commit()
+
+        # Remove physical directories
+        for tier_dir in TIER_DIRS.values():
+            path = os.path.join(tier_dir, current_user["username"], bucket_name)
+            if os.path.exists(path):
+                shutil.rmtree(path)
+
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    finally:
+        conn.close()
+
+    return JSONResponse(status_code=200, content={
+        "message": f"Bucket '{bucket_name}' deleted.",
+        "owner":   current_user["username"],
+    })
+
+# ---------------------------------------------------------------------------
+# UPLOAD  — now accepts bucket= form field
+# ---------------------------------------------------------------------------
+
+@app.post("/upload", summary="Upload a file to a bucket")
+async def upload_file(
+    current_user: SessionUser,
+    file:   UploadFile = File(...),
+    bucket: str        = Form(default="default"),
+):
+    username = current_user["username"]
+    user_id  = current_user["id"]
+
+    conn = get_conn()
+    try:
+        # Resolve bucket — auto-create 'default' if it doesn't exist yet
+        bucket_row = get_bucket(conn, user_id, bucket)
+        if bucket_row is None:
+            if bucket == "default":
+                conn.execute(
+                    "INSERT INTO buckets (user_id, name, created_at) VALUES (?,?,?)",
+                    (user_id, "default", datetime.utcnow().isoformat()),
+                )
+                conn.commit()
+                bucket_row = dict(conn.execute(
+                    "SELECT * FROM buckets WHERE user_id=? AND name='default'",
+                    (user_id,),
+                ).fetchone())
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Bucket '{bucket}' not found. Create it first with PUT /buckets/{bucket}",
+                )
+
+        bucket_id = bucket_row["id"]
+
+        # Write to disk
+        contents     = await file.read()
+        file_size_mb = len(contents) / (1024 * 1024)
+        user_dir     = os.path.join(TIER_DIRS["HOT"], username, bucket)
+        os.makedirs(user_dir, exist_ok=True)
+        file_path = os.path.join(user_dir, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
+        now = datetime.utcnow().isoformat()
+        cursor = conn.execute(
+            """
+            INSERT INTO files
+                   (user_id, bucket_id, filename, file_size_mb, storage_tier,
+                    created_at, last_accessed_at, hot_entered_at)
+            VALUES (?,?,?,?,'HOT',?,?,?)
+            """,
+            (user_id, bucket_id, file.filename, file_size_mb, now, now, now),
+        )
+        conn.commit()
+
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Filesystem error: {exc}")
+    finally:
+        conn.close()
+
+    return JSONResponse(status_code=201, content={
+        "message":      "File uploaded to HOT storage.",
+        "record_id":    cursor.lastrowid,
+        "owner":        username,
+        "bucket":       bucket,
+        "filename":     file.filename,
+        "file_path":    file_path,
+        "file_size_mb": round(file_size_mb, 4),
+        "storage_tier": "HOT",
+        "uploaded_at":  now,
+    })
+
+# ---------------------------------------------------------------------------
+# DOWNLOAD  — /files/{bucket}/{filename}
+# ---------------------------------------------------------------------------
+
+@app.get("/files/{bucket}/{filename}", summary="Download a file from a bucket")
+def download_file(bucket: str, filename: str, current_user: SessionUser):
+    username = current_user["username"]
+    user_id  = current_user["id"]
+
+    conn = get_conn()
+    try:
+        bucket_row = get_bucket(conn, user_id, bucket)
+        if bucket_row is None:
+            raise HTTPException(status_code=404, detail=f"Bucket '{bucket}' not found.")
+
+        row = conn.execute(
+            """
+            SELECT id, filename, storage_tier, user_id, file_size_mb
+            FROM   files
+            WHERE  user_id=? AND bucket_id=? AND filename=?
+            ORDER  BY created_at DESC LIMIT 1
+            """,
+            (user_id, bucket_row["id"], filename),
+        ).fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"'{filename}' not found in bucket '{bucket}'.",
+            )
+
+        row_dict  = dict(row)
+        current   = row_dict["storage_tier"]
+        file_path = tier_file_path(current, username, bucket, filename)
+
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=410, detail="File missing from disk.")
+
+        now_iso = datetime.utcnow().isoformat()
+        promote_to_hot(conn, row_dict, username, bucket, now_iso)
+        conn.commit()
+
+        hot_path = tier_file_path("HOT", username, bucket, filename)
+
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    finally:
+        conn.close()
+
+    return FileResponse(
+        path=hot_path if os.path.exists(hot_path) else file_path,
+        filename=filename,
+        media_type="application/octet-stream",
+        headers={"X-Storage-Tier": current, "X-Bucket": bucket},
+    )
+
+# ---------------------------------------------------------------------------
+# DELETE OBJECT  — /files/{bucket}/{filename}
+# ---------------------------------------------------------------------------
+
+@app.delete("/files/{bucket}/{filename}", summary="Delete a file from a bucket")
+def delete_file(bucket: str, filename: str, current_user: SessionUser):
+    username = current_user["username"]
+    user_id  = current_user["id"]
+
+    conn = get_conn()
+    try:
+        bucket_row = get_bucket(conn, user_id, bucket)
+        if bucket_row is None:
+            raise HTTPException(status_code=404, detail=f"Bucket '{bucket}' not found.")
+
+        row = conn.execute(
+            "SELECT id, storage_tier FROM files WHERE user_id=? AND bucket_id=? AND filename=? LIMIT 1",
+            (user_id, bucket_row["id"], filename),
+        ).fetchone()
+
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"'{filename}' not found.")
+
+        fp = tier_file_path(row["storage_tier"], username, bucket, filename)
+        try:
+            os.remove(fp)
+        except FileNotFoundError:
+            pass
+
+        conn.execute("DELETE FROM files WHERE id=?", (row["id"],))
+        conn.commit()
+
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    finally:
+        conn.close()
+
+    return JSONResponse(status_code=200, content={
+        "message": f"'{filename}' deleted from bucket '{bucket}'.",
+        "owner":   username,
+        "bucket":  bucket,
+    })
+
+# ---------------------------------------------------------------------------
+# LIST FILES (flat — all buckets)
+# ---------------------------------------------------------------------------
+
+@app.get("/files", summary="List all files across all buckets")
+def list_files(current_user: SessionUser):
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """
+            SELECT f.id, f.filename, f.file_size_mb, f.storage_tier,
+                   f.created_at, f.last_accessed_at,
+                   b.name as bucket_name
+            FROM   files f
+            LEFT JOIN buckets b ON b.id = f.bucket_id
+            WHERE  f.user_id=?
+            ORDER  BY f.created_at DESC
+            """,
+            (current_user["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+    files = [dict(r) for r in rows]
+    return {
+        "username":      current_user["username"],
+        "total_files":   len(files),
+        "total_size_mb": round(sum(f["file_size_mb"] for f in files), 4),
+        "files":         files,
+    }
+
+# ---------------------------------------------------------------------------
+# DASHBOARD
 # ---------------------------------------------------------------------------
 
 @app.get("/", include_in_schema=False)
 def dashboard(request: Request, current_user: SessionUser):
     user_id = current_user["id"]
-    conn = get_conn()
+    conn    = get_conn()
     try:
         files = conn.execute(
             """
-            SELECT id, filename, file_size_mb, storage_tier,
-                   created_at, last_accessed_at,
-                   hot_entered_at, cool_entered_at,
-                   cold_entered_at, archive_entered_at
-            FROM   files WHERE user_id=? ORDER BY created_at DESC
-            """, (user_id,),
+            SELECT f.id, f.filename, f.file_size_mb, f.storage_tier,
+                   f.created_at, f.last_accessed_at,
+                   f.hot_entered_at, f.cool_entered_at,
+                   f.cold_entered_at, f.archive_entered_at,
+                   b.name as bucket_name
+            FROM   files f
+            LEFT JOIN buckets b ON b.id = f.bucket_id
+            WHERE  f.user_id=? ORDER BY f.created_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+        buckets = conn.execute(
+            """
+            SELECT bk.id, bk.name, bk.created_at,
+                   COUNT(f.id) as file_count,
+                   COALESCE(SUM(f.file_size_mb),0) as total_mb
+            FROM   buckets bk
+            LEFT JOIN files f ON f.bucket_id = bk.id
+            WHERE  bk.user_id=?
+            GROUP  BY bk.id
+            ORDER  BY bk.created_at
+            """,
+            (user_id,),
         ).fetchall()
 
         billing = conn.execute(
@@ -273,37 +651,33 @@ def dashboard(request: Request, current_user: SessionUser):
         events = conn.execute(
             """
             SELECT te.from_tier, te.to_tier, te.event_type,
-                   te.occurred_at, f.filename
+                   te.occurred_at, f.filename,
+                   b.name as bucket_name
             FROM   tier_events te
             JOIN   files f ON f.id = te.file_id
+            LEFT JOIN buckets b ON b.id = f.bucket_id
             WHERE  te.user_id=?
             ORDER  BY te.occurred_at DESC LIMIT 10
-            """, (user_id,),
+            """,
+            (user_id,),
         ).fetchall()
 
-        # Request summary for dashboard
         req_summary = conn.execute(
-            """
-            SELECT op_class, COUNT(*) as cnt
-            FROM   request_logs
-            WHERE  user_id=?
-            GROUP  BY op_class
-            """, (user_id,),
+            "SELECT op_class, COUNT(*) as cnt FROM request_logs WHERE user_id=? GROUP BY op_class",
+            (user_id,),
         ).fetchall()
 
     finally:
         conn.close()
 
-    files_list   = [dict(r) for r in files]
-    events_list  = [dict(r) for r in events]
-    req_counts   = {r["op_class"]: r["cnt"] for r in req_summary}
-    counts       = {t: sum(1 for f in files_list if f["storage_tier"] == t)
-                    for t in TIER_DIRS}
-
-    # Quick request cost calc for dashboard
-    req_cost = (
-        req_counts.get("A",    0) * REQUEST_RATES["A"] +
-        req_counts.get("B",    0) * REQUEST_RATES["B"]
+    files_list  = [dict(r) for r in files]
+    events_list = [dict(r) for r in events]
+    req_counts  = {r["op_class"]: r["cnt"] for r in req_summary}
+    counts      = {t: sum(1 for f in files_list if f["storage_tier"] == t)
+                   for t in TIER_DIRS}
+    req_cost    = (
+        req_counts.get("A", 0) * REQUEST_RATES["A"] +
+        req_counts.get("B", 0) * REQUEST_RATES["B"]
     )
 
     return templates.TemplateResponse(
@@ -312,6 +686,7 @@ def dashboard(request: Request, current_user: SessionUser):
         context={
             "user":        current_user,
             "files":       files_list,
+            "buckets":     [dict(r) for r in buckets],
             "billing":     dict(billing) if billing else None,
             "events":      events_list,
             "tier_styles": TIER_STYLES,
@@ -325,7 +700,7 @@ def dashboard(request: Request, current_user: SessionUser):
     )
 
 # ---------------------------------------------------------------------------
-# GET /invoice  — full invoice page
+# INVOICE
 # ---------------------------------------------------------------------------
 
 @app.get("/invoice", include_in_schema=False)
@@ -337,40 +712,24 @@ def invoice_page(request: Request, current_user: SessionUser):
     try:
         files = conn.execute(
             """
-            SELECT id, filename, file_size_mb, storage_tier,
-                   created_at, last_accessed_at,
-                   hot_entered_at, cool_entered_at,
-                   cold_entered_at, archive_entered_at
-            FROM   files WHERE user_id=? ORDER BY created_at DESC
-            """, (user_id,),
+            SELECT f.*, b.name as bucket_name
+            FROM   files f
+            LEFT JOIN buckets b ON b.id = f.bucket_id
+            WHERE  f.user_id=? ORDER BY f.created_at DESC
+            """,
+            (user_id,),
         ).fetchall()
 
-        billing = conn.execute(
-            "SELECT * FROM billing_records WHERE user_id=?", (user_id,)
-        ).fetchone()
+        billing    = conn.execute("SELECT * FROM billing_records WHERE user_id=?", (user_id,)).fetchone()
+        first_file = conn.execute("SELECT MIN(created_at) FROM files WHERE user_id=?", (user_id,)).fetchone()[0]
 
-        first_file = conn.execute(
-            "SELECT MIN(created_at) FROM files WHERE user_id=?", (user_id,)
-        ).fetchone()[0]
-
-        # Full request log breakdown
         req_by_class = conn.execute(
-            """
-            SELECT op_class, COUNT(*) as cnt
-            FROM   request_logs WHERE user_id=?
-            GROUP  BY op_class
-            """, (user_id,),
+            "SELECT op_class, COUNT(*) as cnt FROM request_logs WHERE user_id=? GROUP BY op_class",
+            (user_id,),
         ).fetchall()
-
-        # Recent requests for the log table
         recent_reqs = conn.execute(
-            """
-            SELECT method, endpoint, op_class, occurred_at
-            FROM   request_logs
-            WHERE  user_id=?
-            ORDER  BY occurred_at DESC
-            LIMIT  20
-            """, (user_id,),
+            "SELECT method, endpoint, op_class, occurred_at FROM request_logs WHERE user_id=? ORDER BY occurred_at DESC LIMIT 20",
+            (user_id,),
         ).fetchall()
 
     finally:
@@ -381,12 +740,9 @@ def invoice_page(request: Request, current_user: SessionUser):
     recent_reqs = [dict(r) for r in recent_reqs]
 
     def parse_dt(val):
-        if not val:
-            return None
-        try:
-            return datetime.fromisoformat(val)
-        except Exception:
-            return None
+        if not val: return None
+        try: return datetime.fromisoformat(val)
+        except: return None
 
     def fmt_duration(secs):
         secs = int(max(secs, 0))
@@ -394,7 +750,6 @@ def invoice_page(request: Request, current_user: SessionUser):
         if secs < 3600: return f"{secs//60}m {secs%60}s"
         return f"{secs//3600}h {(secs%3600)//60}m"
 
-    # Per-file storage cost
     file_costs    = {}
     grand_by_tier = {t: 0.0 for t in TIER_RATES}
     tier_costs    = {t: 0.0 for t in TIER_RATES}
@@ -408,7 +763,7 @@ def invoice_page(request: Request, current_user: SessionUser):
         arc_in     = parse_dt(f["archive_entered_at"])
         current    = f["storage_tier"]
 
-        windows = []
+        windows  = []
         hot_end  = cool_in or (now if current == "HOT"     else None)
         cool_end = cold_in or (now if current == "COOL"    else None)
         cold_end = arc_in  or (now if current == "COLD"    else None)
@@ -427,11 +782,11 @@ def invoice_page(request: Request, current_user: SessionUser):
             costs[tier] += cost
             total_secs  += secs
             windows_out.append({
-                "tier":         tier,
-                "from_str":     start.strftime("%m/%d %H:%M:%S"),
-                "to_str":       end.strftime("%m/%d %H:%M:%S"),
+                "tier": tier,
+                "from_str": start.strftime("%m/%d %H:%M:%S"),
+                "to_str":   end.strftime("%m/%d %H:%M:%S"),
                 "duration_str": fmt_duration(secs),
-                "cost":         cost,
+                "cost": cost,
             })
 
         total_cost = sum(costs.values())
@@ -445,18 +800,17 @@ def invoice_page(request: Request, current_user: SessionUser):
             "total": total_cost,
             "duration_str": fmt_duration(total_secs),
             "windows": windows_out,
+            "bucket": f.get("bucket_name", "default"),
         }
 
-    # Request charges
-    class_a_count = req_counts.get("A",    0)
-    class_b_count = req_counts.get("B",    0)
-    free_count    = req_counts.get("FREE", 0)
-    class_a_cost  = class_a_count * REQUEST_RATES["A"]
-    class_b_cost  = class_b_count * REQUEST_RATES["B"]
+    class_a_count  = req_counts.get("A",    0)
+    class_b_count  = req_counts.get("B",    0)
+    free_count     = req_counts.get("FREE", 0)
+    class_a_cost   = class_a_count * REQUEST_RATES["A"]
+    class_b_cost   = class_b_count * REQUEST_RATES["B"]
     total_req_cost = class_a_cost + class_b_cost
-
-    storage_cost  = billing["amount_owed"] if billing else 0.0
-    grand_total   = storage_cost + total_req_cost
+    storage_cost   = billing["amount_owed"] if billing else 0.0
+    grand_total    = storage_cost + total_req_cost
 
     counts = {t: sum(1 for f in files_list if f["storage_tier"] == t)
               for t in TIER_RATES}
@@ -465,166 +819,25 @@ def invoice_page(request: Request, current_user: SessionUser):
         request=request,
         name="invoice.html",
         context={
-            "user":           current_user,
-            "files":          files_list,
-            "billing":        dict(billing) if billing else None,
-            "file_costs":     file_costs,
-            "tier_costs":     tier_costs,
-            "grand_by_tier":  grand_by_tier,
-            "counts":         counts,
-            "now":            now.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "now_ts":         now.strftime("%Y%m%d%H%M"),
-            "period_start":   first_file[:16] if first_file else "—",
-            "total_mb":       round(sum(f["file_size_mb"] for f in files_list), 4),
-            "tier_styles":    TIER_STYLES,
-            "tier_rates":     TIER_RATES,
-            # Request charge data
-            "class_a_count":  class_a_count,
-            "class_b_count":  class_b_count,
-            "free_count":     free_count,
-            "class_a_cost":   class_a_cost,
-            "class_b_cost":   class_b_cost,
-            "total_req_cost": total_req_cost,
-            "storage_cost":   storage_cost,
-            "grand_total":    grand_total,
-            "recent_reqs":    recent_reqs,
-            "req_rates":      REQUEST_RATES,
+            "user": current_user, "files": files_list,
+            "billing": dict(billing) if billing else None,
+            "file_costs": file_costs, "tier_costs": tier_costs,
+            "grand_by_tier": grand_by_tier, "counts": counts,
+            "now": now.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "now_ts": now.strftime("%Y%m%d%H%M"),
+            "period_start": first_file[:16] if first_file else "—",
+            "total_mb": round(sum(f["file_size_mb"] for f in files_list), 4),
+            "tier_styles": TIER_STYLES, "tier_rates": TIER_RATES,
+            "class_a_count": class_a_count, "class_b_count": class_b_count,
+            "free_count": free_count, "class_a_cost": class_a_cost,
+            "class_b_cost": class_b_cost, "total_req_cost": total_req_cost,
+            "storage_cost": storage_cost, "grand_total": grand_total,
+            "recent_reqs": recent_reqs, "req_rates": REQUEST_RATES,
         },
     )
 
 # ---------------------------------------------------------------------------
-# POST /upload
-# ---------------------------------------------------------------------------
-
-@app.post("/upload", include_in_schema=False)
-async def upload_file(current_user: SessionUser, file: UploadFile = File(...)):
-    username = current_user["username"]
-    user_id  = current_user["id"]
-    conn = get_conn()
-    try:
-        user_dir     = os.path.join(TIER_DIRS["HOT"], username)
-        os.makedirs(user_dir, exist_ok=True)
-        file_path    = os.path.join(user_dir, file.filename)
-        contents     = await file.read()
-        file_size_mb = len(contents) / (1024 * 1024)
-        with open(file_path, "wb") as f:
-            f.write(contents)
-        now    = datetime.utcnow().isoformat()
-        cursor = conn.execute(
-            """
-            INSERT INTO files
-                   (user_id, filename, file_size_mb, storage_tier,
-                    created_at, last_accessed_at, hot_entered_at)
-            VALUES (?,?,?,'HOT',?,?,?)
-            """,
-            (user_id, file.filename, file_size_mb, now, now, now),
-        )
-        conn.commit()
-    except sqlite3.Error as exc:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Filesystem error: {exc}")
-    finally:
-        conn.close()
-    return JSONResponse(status_code=201, content={
-        "message": "File uploaded to HOT storage.",
-        "record_id": cursor.lastrowid,
-        "owner": username,
-        "file_path": file_path,
-        "file_size_mb": round(file_size_mb, 4),
-        "storage_tier": "HOT",
-        "uploaded_at": now,
-    })
-
-# ---------------------------------------------------------------------------
-# GET /files  GET /files/{filename}  DELETE /files/{filename}
-# ---------------------------------------------------------------------------
-
-@app.get("/files", include_in_schema=False)
-def list_files(current_user: SessionUser):
-    conn = get_conn()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM files WHERE user_id=? ORDER BY created_at DESC",
-            (current_user["id"],),
-        ).fetchall()
-    finally:
-        conn.close()
-    files = [dict(r) for r in rows]
-    return {"username": current_user["username"],
-            "total_files": len(files),
-            "total_size_mb": round(sum(f["file_size_mb"] for f in files), 4),
-            "files": files}
-
-
-@app.get("/files/{filename}", include_in_schema=False)
-def download_file(filename: str, current_user: SessionUser):
-    username = current_user["username"]
-    user_id  = current_user["id"]
-    conn = get_conn()
-    try:
-        row = conn.execute(
-            """
-            SELECT id, filename, storage_tier, user_id
-            FROM   files WHERE user_id=? AND filename=?
-            ORDER  BY created_at DESC LIMIT 1
-            """, (user_id, filename),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail=f"'{filename}' not found.")
-        row_dict  = dict(row)
-        current   = row_dict["storage_tier"]
-        file_path = tier_file_path(current, username, filename)
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=410, detail="File missing from disk.")
-        now_iso = datetime.utcnow().isoformat()
-        promote_to_hot(conn, row_dict, username, now_iso)
-        conn.commit()
-        hot_path = tier_file_path("HOT", username, filename)
-    except HTTPException:
-        raise
-    except sqlite3.Error as exc:
-        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
-    finally:
-        conn.close()
-    return FileResponse(
-        path=hot_path if os.path.exists(hot_path) else file_path,
-        filename=filename, media_type="application/octet-stream",
-    )
-
-
-@app.delete("/files/{filename}", include_in_schema=False)
-def delete_file(filename: str, current_user: SessionUser):
-    username = current_user["username"]
-    user_id  = current_user["id"]
-    conn = get_conn()
-    try:
-        row = conn.execute(
-            "SELECT id, storage_tier FROM files WHERE user_id=? AND filename=? LIMIT 1",
-            (user_id, filename),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail=f"'{filename}' not found.")
-        fp = tier_file_path(row["storage_tier"], username, filename)
-        try:
-            os.remove(fp)
-        except FileNotFoundError:
-            pass
-        conn.execute("DELETE FROM files WHERE id=?", (row["id"],))
-        conn.commit()
-    except HTTPException:
-        raise
-    except sqlite3.Error as exc:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
-    finally:
-        conn.close()
-    return JSONResponse(status_code=200,
-                        content={"message": f"'{filename}' deleted.", "owner": username})
-
-# ---------------------------------------------------------------------------
-# GET /me  POST /me/regenerate-key  POST /system/reset
+# ME + KEY ROTATION + RESET
 # ---------------------------------------------------------------------------
 
 @app.get("/me", include_in_schema=False)
@@ -646,10 +859,10 @@ def regenerate_api_key(request: Request, current_user: SessionUser):
     finally:
         conn.close()
     return JSONResponse(status_code=200, content={
-        "message": "API key rotated. Old key is now invalid.",
+        "message":     "API key rotated.",
         "new_api_key": new_key,
-        "username": current_user["username"],
-        "rotated_at": datetime.utcnow().isoformat(),
+        "username":    current_user["username"],
+        "rotated_at":  datetime.utcnow().isoformat(),
     })
 
 
@@ -661,6 +874,7 @@ def system_reset(current_user: SessionUser):
         conn.execute("DELETE FROM tier_events")
         conn.execute("DELETE FROM billing_records")
         conn.execute("DELETE FROM files")
+        conn.execute("DELETE FROM buckets")
         conn.commit()
     except sqlite3.Error as exc:
         conn.rollback()

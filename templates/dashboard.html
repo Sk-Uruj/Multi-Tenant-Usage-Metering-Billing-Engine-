@@ -8,115 +8,83 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --black:   #0a0a0a;
-      --white:   #f5f0e8;
-      --yellow:  #FFE000;
-      --hot:     #FF2D6B;
-      --cool:    #0057FF;
-      --cold:    #00FFD1;
-      --archive: #888888;
-      --green:   #00FF85;
-      --panel:   #f0ead8;
-      --gap:     20px;
+      --black:#0a0a0a; --white:#f5f0e8; --yellow:#FFE000;
+      --hot:#FF2D6B; --cool:#0057FF; --cold:#00FFD1;
+      --archive:#888; --green:#00FF85; --orange:#FF6B00;
+      --panel:#f0ead8; --gap:20px;
     }
-    body {
-      font-family: 'Space Mono', monospace;
-      background: var(--white);
-      background-image:
-        linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
-      background-size: 32px 32px;
-      color: var(--black);
-      min-height: 100vh;
-      padding: 24px;
-    }
-    .bebas { font-family: 'Bebas Neue', sans-serif; }
-    .label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; opacity: .55; display: block; margin-bottom: 5px; }
-    .section-tag { display: inline-block; background: var(--black); color: var(--yellow); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 3px 10px; }
-
-    /* Cards */
-    .card        { background: var(--panel); border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); }
-    .card-inset  { background: var(--white); border: 2px solid var(--black); }
-    .card-dark   { background: var(--black); border: 3px solid var(--black); box-shadow: 6px 6px 0 rgba(255,224,0,.25); }
-
-    /* Badges */
-    .badge { display: inline-block; border: 2px solid var(--black); font-size: .6rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 2px 9px; }
-    .badge-hot     { background: var(--hot);     color: #fff; }
-    .badge-cool    { background: var(--cool);    color: #fff; }
-    .badge-cold    { background: var(--cold);    color: #000; }
-    .badge-archive { background: var(--archive); color: #fff; }
-    .badge-green   { background: var(--green);   color: #000; }
-
-    /* Buttons */
-    .btn { display: inline-block; border: 3px solid var(--black); box-shadow: 4px 4px 0 var(--black); font-family: 'Space Mono', monospace; font-weight: 700; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; padding: 10px 18px; cursor: pointer; transition: transform .07s, box-shadow .07s; text-decoration: none; text-align: center; background: none; }
-    .btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--black); }
-    .btn:active { transform: translate(4px,4px); box-shadow: 0 0 0 var(--black); }
-    .btn-yellow  { background: var(--yellow); color: var(--black); }
-    .btn-cyan    { background: var(--cold);   color: var(--black); }
-    .btn-red     { background: var(--hot);    color: #fff; border-color: var(--hot); box-shadow: 4px 4px 0 #aa1040; }
-    .btn-black   { background: var(--black);  color: var(--yellow); }
-    .btn-green   { background: var(--green);  color: var(--black); border-color: var(--green); box-shadow: 4px 4px 0 #00aa55; }
-    .btn-sm      { font-size: .65rem; padding: 6px 12px; box-shadow: 2px 2px 0 var(--black); }
-    .btn-full    { width: 100%; display: block; }
-
-    /* Inputs */
-    input[type="text"], input[type="file"] { width: 100%; border: 2px solid var(--black); background: var(--white); font-family: 'Space Mono', monospace; font-size: .8rem; padding: 9px 12px; outline: none; box-shadow: 3px 3px 0 var(--black); }
-    input:focus { box-shadow: 5px 5px 0 var(--black); }
-    .input-key  { background: #0d0d0d; color: var(--green); border-color: var(--green); box-shadow: 3px 3px 0 var(--green); font-size: .68rem; letter-spacing: .05em; }
-
-    /* Table */
-    table { border-collapse: collapse; width: 100%; }
-    thead tr { background: var(--black); }
-    th { color: var(--yellow); font-size: .6rem; letter-spacing: .18em; text-transform: uppercase; padding: 11px 14px; text-align: left; white-space: nowrap; }
-    td { padding: 11px 14px; font-size: .78rem; border-bottom: 2px solid var(--black); vertical-align: middle; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: rgba(0,0,0,.04); }
-
-    /* Animations */
+    body { font-family:'Space Mono',monospace; background:var(--white); color:var(--black);
+      background-image:linear-gradient(rgba(0,0,0,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.04) 1px,transparent 1px);
+      background-size:32px 32px; min-height:100vh; padding:24px; }
+    .bebas { font-family:'Bebas Neue',sans-serif; }
+    .label { font-size:.6rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; opacity:.55; display:block; margin-bottom:5px; }
+    .tag   { display:inline-block; background:var(--black); color:var(--yellow); font-size:.6rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; padding:3px 10px; }
+    .card       { background:var(--panel); border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); }
+    .card-inset { background:var(--white); border:2px solid var(--black); }
+    .card-dark  { background:var(--black); border:3px solid var(--black); box-shadow:6px 6px 0 rgba(255,224,0,.2); }
+    .badge { display:inline-block; border:2px solid var(--black); font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; }
+    .badge-hot     { background:var(--hot);     color:#fff; }
+    .badge-cool    { background:var(--cool);    color:#fff; }
+    .badge-cold    { background:var(--cold);    color:#000; }
+    .badge-archive { background:var(--archive); color:#fff; }
+    .badge-green   { background:var(--green);   color:#000; }
+    .badge-orange  { background:var(--orange);  color:#fff; }
+    .btn { display:inline-block; border:3px solid var(--black); box-shadow:4px 4px 0 var(--black);
+      font-family:'Space Mono',monospace; font-weight:700; font-size:.78rem; letter-spacing:.06em;
+      text-transform:uppercase; padding:10px 18px; cursor:pointer;
+      transition:transform .07s,box-shadow .07s; text-decoration:none; text-align:center; background:none; }
+    .btn:hover  { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--black); }
+    .btn:active { transform:translate(4px,4px); box-shadow:0 0 0 var(--black); }
+    .btn-yellow { background:var(--yellow); color:var(--black); }
+    .btn-cyan   { background:var(--cold);   color:var(--black); }
+    .btn-red    { background:var(--hot);    color:#fff; border-color:var(--hot); box-shadow:4px 4px 0 #aa1040; }
+    .btn-black  { background:var(--black);  color:var(--yellow); }
+    .btn-green  { background:var(--green);  color:var(--black); border-color:var(--green); box-shadow:4px 4px 0 #00aa55; }
+    .btn-orange { background:var(--orange); color:#fff; border-color:var(--orange); box-shadow:4px 4px 0 #aa4400; }
+    .btn-sm     { font-size:.65rem; padding:6px 12px; box-shadow:2px 2px 0 var(--black); }
+    .btn-full   { width:100%; display:block; }
+    input[type="text"],input[type="file"],select {
+      width:100%; border:2px solid var(--black); background:var(--white);
+      font-family:'Space Mono',monospace; font-size:.8rem; padding:9px 12px;
+      outline:none; box-shadow:3px 3px 0 var(--black); }
+    input:focus,select:focus { box-shadow:5px 5px 0 var(--black); }
+    .input-key { background:#0d0d0d; color:var(--green); border-color:var(--green); box-shadow:3px 3px 0 var(--green); font-size:.68rem; }
+    table { border-collapse:collapse; width:100%; }
+    thead tr { background:var(--black); }
+    th { color:var(--yellow); font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; padding:11px 14px; text-align:left; white-space:nowrap; }
+    td { padding:10px 14px; font-size:.78rem; border-bottom:2px solid var(--black); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:rgba(0,0,0,.04); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-    .ticker { animation: pulse 2s ease-in-out infinite; display: inline-block; }
-    @keyframes slidein { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
-    .slide-in { animation: slidein .3s ease; }
-
+    .ticker { animation:pulse 2s ease-in-out infinite; display:inline-block; }
+    .stat-num { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; line-height:1; }
     /* Layout */
-    .page { max-width: 1440px; margin: 0 auto; }
-
-    .header { display: grid; grid-template-columns: 1fr 220px; border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); margin-bottom: var(--gap); overflow: hidden; }
-    .header-left  { background: var(--black); padding: 32px 36px; }
-    .header-right { background: var(--yellow); border-left: 3px solid var(--black); padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
-
-    /* 4-tier stat strip */
-    .stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); margin-bottom: var(--gap); }
-    .stat-card  { padding: 18px 20px; border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); }
-    .stat-num   { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; line-height: 1; }
-
-    .main-grid { display: grid; grid-template-columns: 320px 1fr; gap: var(--gap); margin-bottom: var(--gap); align-items: start; }
-    .sidebar   { display: flex; flex-direction: column; gap: var(--gap); }
-    .sidebar .card, .sidebar .card-dark { padding: 20px; }
-
-    .file-panel { border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); background: var(--panel); }
-    .file-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 3px solid var(--black); }
-    .file-panel-header-left { display: flex; align-items: center; gap: 12px; }
-
-    .events-panel { border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); background: var(--panel); margin-bottom: var(--gap); }
-    .events-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 3px solid var(--black); }
-
-    .bill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .tier-bill-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-top: 12px; }
-    .tier-bill-cell  { padding: 8px 10px; border: 2px solid var(--black); text-align: center; }
-
-    #toast { position: fixed; bottom: 24px; right: 24px; background: var(--black); color: var(--yellow); border: 3px solid var(--yellow); box-shadow: 6px 6px 0 var(--yellow); padding: 13px 22px; font-size: .78rem; font-weight: 700; letter-spacing: .05em; opacity: 0; transform: translateY(12px); transition: opacity .18s, transform .18s; pointer-events: none; z-index: 9999; }
-    #toast.show { opacity: 1; transform: translateY(0); }
-    .status-box { padding: 10px 14px; font-size: .75rem; border: 2px solid var(--black); margin-top: 12px; display: none; }
-    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; opacity: .28; }
-    ::-webkit-scrollbar { width: 7px; height: 7px; }
-    ::-webkit-scrollbar-track { background: var(--white); }
-    ::-webkit-scrollbar-thumb { background: var(--black); }
-    footer { display: flex; align-items: center; justify-content: space-between; font-size: .62rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; opacity: .28; margin-top: 8px; }
-    footer a { color: var(--black); text-decoration: underline; }
-
-    .arrow { display: inline-block; margin: 0 5px; opacity: .5; }
-    .promote-flash { background: rgba(0,255,133,.15) !important; }
+    .page { max-width:1440px; margin:0 auto; }
+    .header { display:grid; grid-template-columns:1fr 230px; border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); margin-bottom:var(--gap); overflow:hidden; }
+    .header-left  { background:var(--black); padding:28px 32px; }
+    .header-right { background:var(--yellow); border-left:3px solid var(--black); padding:22px; display:flex; flex-direction:column; justify-content:space-between; }
+    .stat-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+    .stat-card  { padding:16px 18px; border:3px solid var(--black); box-shadow:5px 5px 0 var(--black); }
+    .main-grid  { display:grid; grid-template-columns:340px 1fr; gap:var(--gap); margin-bottom:var(--gap); align-items:start; }
+    .sidebar    { display:flex; flex-direction:column; gap:var(--gap); }
+    .sidebar .card,.sidebar .card-dark { padding:20px; }
+    .right-col  { display:flex; flex-direction:column; gap:var(--gap); }
+    .panel { border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); background:var(--panel); }
+    .panel-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:3px solid var(--black); }
+    .panel-header-left { display:flex; align-items:center; gap:12px; }
+    .status-box { padding:10px 14px; font-size:.75rem; border:2px solid var(--black); margin-top:12px; display:none; }
+    .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; opacity:.28; }
+    #toast { position:fixed; bottom:24px; right:24px; background:var(--black); color:var(--yellow);
+      border:3px solid var(--yellow); box-shadow:6px 6px 0 var(--yellow); padding:13px 22px;
+      font-size:.78rem; font-weight:700; opacity:0; transform:translateY(12px);
+      transition:opacity .18s,transform .18s; pointer-events:none; z-index:9999; }
+    #toast.show { opacity:1; transform:translateY(0); }
+    .bill-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    footer { display:flex; align-items:center; justify-content:space-between; font-size:.62rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; opacity:.28; margin-top:8px; }
+    footer a { color:var(--black); text-decoration:underline; }
+    ::-webkit-scrollbar { width:7px; height:7px; }
+    ::-webkit-scrollbar-track { background:var(--white); }
+    ::-webkit-scrollbar-thumb { background:var(--black); }
   </style>
 </head>
 <body>
@@ -125,81 +93,80 @@
   <!-- ══════════════════════════ HEADER -->
   <header class="header">
     <div class="header-left">
-      <div class="bebas" style="font-size:5rem;letter-spacing:.12em;color:var(--yellow);line-height:1;">STRATA</div>
-      <div style="font-size:.6rem;letter-spacing:.28em;color:#555;margin-top:4px;">MULTI-TENANT CLOUD STORAGE // 4-TIER ENGINE // v0.7.0</div>
-      <div style="margin-top:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span class="badge badge-green" style="font-size:.68rem;padding:4px 14px;">✓ AUTHENTICATED</span>
-        <span class="bebas" style="font-size:1.8rem;letter-spacing:.12em;color:var(--white);">{{ user.username }}</span>
+      <div class="bebas" style="font-size:4.5rem;letter-spacing:.12em;color:var(--yellow);line-height:1;">STRATA</div>
+      <div style="font-size:.58rem;letter-spacing:.25em;color:#555;margin-top:4px;">MULTI-TENANT CLOUD STORAGE // 4-TIER // BUCKET NAMESPACES // v0.9.0</div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="badge badge-green" style="font-size:.65rem;padding:3px 12px;">✓ AUTHENTICATED</span>
+        <span class="bebas" style="font-size:1.6rem;letter-spacing:.1em;color:var(--white);">{{ user.username }}</span>
+        <span class="badge badge-orange">{{ buckets|length }} BUCKET(S)</span>
       </div>
-      <!-- Tier pipeline visual -->
-      <div style="margin-top:20px;display:flex;align-items:center;gap:0;flex-wrap:wrap;">
-        <span class="badge badge-hot"     style="font-size:.65rem;padding:5px 12px;">HOT</span>
-        <span class="arrow">→</span>
-        <span class="badge badge-cool"    style="font-size:.65rem;padding:5px 12px;">COOL</span>
-        <span class="arrow">→</span>
-        <span class="badge badge-cold"    style="font-size:.65rem;padding:5px 12px;">COLD</span>
-        <span class="arrow">→</span>
-        <span class="badge badge-archive" style="font-size:.65rem;padding:5px 12px;">ARCHIVE</span>
-        <span style="font-size:.6rem;color:#888;margin-left:14px;">access resets → HOT</span>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:0;flex-wrap:wrap;">
+        <span class="badge badge-hot"     style="font-size:.58rem;padding:3px 9px;">HOT</span>
+        <span style="font-size:.65rem;opacity:.35;margin:0 3px;">→</span>
+        <span class="badge badge-cool"    style="font-size:.58rem;padding:3px 9px;">COOL</span>
+        <span style="font-size:.65rem;opacity:.35;margin:0 3px;">→</span>
+        <span class="badge badge-cold"    style="font-size:.58rem;padding:3px 9px;">COLD</span>
+        <span style="font-size:.65rem;opacity:.35;margin:0 3px;">→</span>
+        <span class="badge badge-archive" style="font-size:.58rem;padding:3px 9px;">ARCHIVE</span>
+        <span style="font-size:.55rem;color:#666;margin-left:10px;">access → HOT</span>
       </div>
     </div>
     <div class="header-right">
       <div>
         <span class="label">YOUR STORAGE</span>
-        <div class="bebas" style="font-size:2.4rem;line-height:1;">{{ total_mb }}<span style="font-size:1rem;"> MB</span></div>
-        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-          <span class="badge badge-hot">{{ counts.HOT }} HOT</span>
-          <span class="badge badge-cool">{{ counts.COOL }} COOL</span>
-          <span class="badge badge-cold">{{ counts.COLD }} COLD</span>
-          <span class="badge badge-archive">{{ counts.ARCHIVE }} ARC</span>
+        <div class="bebas" style="font-size:2.2rem;line-height:1;">{{ total_mb }}<span style="font-size:.9rem;"> MB</span></div>
+        <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+          <span class="badge badge-hot">{{ counts.HOT }}</span>
+          <span class="badge badge-cool">{{ counts.COOL }}</span>
+          <span class="badge badge-cold">{{ counts.COLD }}</span>
+          <span class="badge badge-archive">{{ counts.ARCHIVE }}</span>
         </div>
       </div>
-      <div style="margin-top:16px;">
-        <div style="font-size:.6rem;opacity:.5;margin-bottom:10px;">{{ now }}</div>
+      <div style="margin-top:14px;">
+        <div style="font-size:.58rem;opacity:.5;margin-bottom:8px;">{{ now }}</div>
         <a href="/logout" class="btn btn-black btn-sm btn-full">⎋ LOGOUT</a>
       </div>
     </div>
   </header>
 
-  <!-- ══════════════════════════ 4-TIER STAT STRIP -->
+  <!-- ══════════════════════════ STAT STRIP -->
   <div class="stat-strip">
     <div class="stat-card" style="background:var(--hot);color:#fff;">
-      <span class="label" style="color:#fff;opacity:.8;">HOT TIER</span>
+      <span class="label" style="color:#fff;opacity:.8;">HOT</span>
       <div class="stat-num">{{ counts.HOT }}</div>
-      <div style="font-size:.6rem;margin-top:4px;opacity:.7;">$0.001/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.001/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--cool);color:#fff;">
-      <span class="label" style="color:#fff;opacity:.8;">COOL TIER</span>
+      <span class="label" style="color:#fff;opacity:.8;">COOL</span>
       <div class="stat-num">{{ counts.COOL }}</div>
-      <div style="font-size:.6rem;margin-top:4px;opacity:.7;">$0.0004/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.0004/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--cold);color:#000;">
-      <span class="label" style="opacity:.65;">COLD TIER</span>
+      <span class="label" style="opacity:.65;">COLD</span>
       <div class="stat-num">{{ counts.COLD }}</div>
-      <div style="font-size:.6rem;margin-top:4px;opacity:.6;">$0.0002/MB/s</div>
+      <div style="font-size:.58rem;opacity:.6;margin-top:3px;">$0.0002/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--archive);color:#fff;">
-      <span class="label" style="color:#fff;opacity:.8;">ARCHIVE TIER</span>
+      <span class="label" style="opacity:.8;">ARCHIVE</span>
       <div class="stat-num">{{ counts.ARCHIVE }}</div>
-      <div style="font-size:.6rem;margin-top:4px;opacity:.7;">$0.00005/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.00005/MB/s</div>
     </div>
   </div>
 
   <!-- ══════════════════════════ API KEY BAR -->
-  <div class="card-dark" style="padding:20px;margin-bottom:var(--gap);">
-    <div style="display:flex;align-items:center;gap:12px;">
+  <div class="card-dark" style="padding:18px 24px;margin-bottom:var(--gap);">
+    <div style="display:flex;align-items:center;gap:10px;">
       <span class="badge badge-green">YOUR KEY</span>
-      <span style="font-size:.68rem;font-weight:700;letter-spacing:.18em;color:var(--yellow);">API KEY — PRIVATE TO YOU ONLY</span>
+      <span style="font-size:.65rem;font-weight:700;letter-spacing:.15em;color:var(--yellow);">PRIVATE API KEY</span>
     </div>
-    <p style="font-size:.7rem;color:#777;margin-top:8px;">Only visible after login. Use <code style="color:var(--green);">X-API-Key</code> header for programmatic access.</p>
-    <div style="display:flex;gap:12px;align-items:center;margin-top:10px;">
+    <div style="display:flex;gap:10px;align-items:center;margin-top:10px;">
       <input type="text" class="input-key" id="myApiKey" value="{{ user.api_key }}" readonly style="flex:1;" />
       <button class="btn btn-green btn-sm" onclick="copyKey()">COPY</button>
       <button class="btn btn-sm" id="regenBtn"
         style="background:var(--yellow);color:var(--black);border-color:var(--yellow);box-shadow:3px 3px 0 #aa9500;"
         onclick="regenerateKey()">↻ ROTATE</button>
     </div>
-    <div id="regenStatus" style="display:none;margin-top:10px;padding:10px 14px;font-size:.72rem;border:2px solid var(--black);"></div>
+    <div id="regenStatus" style="display:none;margin-top:8px;padding:8px 12px;font-size:.7rem;border:2px solid var(--black);"></div>
   </div>
 
   <!-- ══════════════════════════ MAIN GRID -->
@@ -208,237 +175,311 @@
     <!-- LEFT SIDEBAR -->
     <aside class="sidebar">
 
-      <!-- Upload -->
+      <!-- ── BUCKET MANAGER ── -->
       <div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-          <span class="section-tag">UPLOAD</span>
-          <span style="font-size:.65rem;opacity:.45;">as <strong>{{ user.username }}</strong> → HOT</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">BUCKETS</span>
+          <span style="font-size:.62rem;opacity:.45;">IBM COS ListBuckets</span>
         </div>
+
+        <!-- Existing buckets -->
+        {% for b in buckets %}
+        <div class="card-inset" style="padding:10px 14px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <span class="badge badge-orange" style="font-size:.6rem;">{{ b.name }}</span>
+              <span style="font-size:.65rem;opacity:.5;margin-left:8px;">{{ b.file_count }} obj · {{ "%.2f"|format(b.total_mb) }} MB</span>
+            </div>
+            {% if b.name != 'default' %}
+            <button class="btn btn-red btn-sm" style="padding:3px 8px;box-shadow:2px 2px 0 #aa1040;"
+              onclick="deleteBucket('{{ b.name }}')">✕</button>
+            {% else %}
+            <span style="font-size:.55rem;opacity:.3;">DEFAULT</span>
+            {% endif %}
+          </div>
+          <div style="font-size:.58rem;opacity:.4;margin-top:4px;">Created: {{ b.created_at[:16] }}</div>
+        </div>
+        {% else %}
+        <div style="text-align:center;font-size:.7rem;opacity:.4;padding:10px 0;">No buckets yet.</div>
+        {% endfor %}
+
+        <!-- Create new bucket -->
+        <div style="margin-top:12px;padding-top:12px;border-top:2px solid rgba(0,0,0,.1);">
+          <span class="label">CREATE NEW BUCKET</span>
+          <input type="text" id="newBucketName" placeholder="e.g. my-backups" style="margin-bottom:8px;" />
+          <button class="btn btn-orange btn-full btn-sm" onclick="createBucket()">+ CREATE BUCKET</button>
+        </div>
+        <div class="status-box" id="bucketStatus"></div>
+      </div>
+
+      <!-- ── UPLOAD ── -->
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">UPLOAD</span>
+          <span style="font-size:.62rem;opacity:.45;">as {{ user.username }} → HOT</span>
+        </div>
+        <span class="label">BUCKET</span>
+        <select id="uploadBucket" style="margin-bottom:10px;">
+          {% for b in buckets %}
+          <option value="{{ b.name }}">{{ b.name }}</option>
+          {% else %}
+          <option value="default">default</option>
+          {% endfor %}
+        </select>
         <span class="label">FILE</span>
         <input type="file" id="fileInput" />
-        <button class="btn btn-yellow btn-full" style="margin-top:12px;" onclick="uploadFile()">▶ PUSH TO HOT STORAGE</button>
+        <button class="btn btn-yellow btn-full" style="margin-top:10px;" onclick="uploadFile()">
+          ▶ PUSH TO HOT STORAGE
+        </button>
         <div class="status-box" id="uploadStatus"></div>
       </div>
 
-      <!-- Object Ops -->
+      <!-- ── OBJECT OPS ── -->
       <div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-          <span class="section-tag">OBJECTS</span>
-          <span style="font-size:.65rem;opacity:.45;">download promotes → HOT</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">OBJECTS</span>
+          <span style="font-size:.62rem;opacity:.45;">download promotes → HOT</span>
         </div>
+        <span class="label">BUCKET</span>
+        <select id="objBucket" style="margin-bottom:10px;">
+          {% for b in buckets %}
+          <option value="{{ b.name }}">{{ b.name }}</option>
+          {% else %}
+          <option value="default">default</option>
+          {% endfor %}
+        </select>
         <span class="label">FILENAME</span>
         <input type="text" id="objFilename" placeholder="e.g. report.pdf" />
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
           <button class="btn btn-cyan" onclick="downloadFile()">⬇ GET</button>
           <button class="btn btn-red"  onclick="deleteFile()">🗑 DEL</button>
         </div>
         <div class="status-box" id="objStatus"></div>
       </div>
 
-      <!-- Request Charges -->
+      <!-- ── BILLING ── -->
       <div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-          <span class="section-tag">REQUESTS</span>
-          <span style="font-size:.65rem;opacity:.45;">api call charges</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-          <div class="card-inset" style="padding:10px;text-align:center;">
-            <div style="font-size:.55rem;font-weight:700;letter-spacing:.1em;opacity:.5;margin-bottom:4px;">CLASS A</div>
-            <div class="bebas" style="font-size:1.6rem;line-height:1;color:var(--hot);">{{ req_counts.get('A', 0) }}</div>
-            <div style="font-size:.55rem;opacity:.4;">writes</div>
-          </div>
-          <div class="card-inset" style="padding:10px;text-align:center;">
-            <div style="font-size:.55rem;font-weight:700;letter-spacing:.1em;opacity:.5;margin-bottom:4px;">CLASS B</div>
-            <div class="bebas" style="font-size:1.6rem;line-height:1;color:var(--cool);">{{ req_counts.get('B', 0) }}</div>
-            <div style="font-size:.55rem;opacity:.4;">reads</div>
-          </div>
-          <div class="card-inset" style="padding:10px;text-align:center;">
-            <div style="font-size:.55rem;font-weight:700;letter-spacing:.1em;opacity:.5;margin-bottom:4px;">FREE</div>
-            <div class="bebas" style="font-size:1.6rem;line-height:1;color:#888;">{{ req_counts.get('FREE', 0) }}</div>
-            <div style="font-size:.55rem;opacity:.4;">deletes</div>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--white);border:2px solid var(--black);">
-          <span style="font-size:.7rem;font-weight:700;opacity:.6;">REQUEST CHARGES</span>
-          <span class="bebas" style="font-size:1.4rem;color:var(--hot);">${{ "%.6f"|format(req_cost) }}</span>
-        </div>
-      </div>
-
-      <!-- Billing -->
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-          <span class="section-tag">INVOICE</span>
-          <span style="font-size:.65rem;opacity:.45;">split across all tiers</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">INVOICE</span>
+          <span style="font-size:.62rem;opacity:.45;">your current bill</span>
         </div>
         {% if billing %}
-        <div class="card-inset" style="padding:16px;position:relative;overflow:hidden;">
+        <div class="card-inset" style="padding:14px;position:relative;overflow:hidden;">
           <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:var(--cool);"></div>
           <div class="bill-grid" style="padding-left:8px;">
             <div>
               <span class="label">HOURS TRACKED</span>
-              <div class="bebas" style="font-size:2rem;line-height:1;">{{ "%.4f"|format(billing.total_hours_tracked) }}</div>
-              <div style="font-size:.65rem;opacity:.4;margin-top:2px;">hrs</div>
+              <div class="bebas" style="font-size:1.9rem;line-height:1;">{{ "%.4f"|format(billing.total_hours_tracked) }}</div>
+              <div style="font-size:.6rem;opacity:.4;margin-top:2px;">hrs</div>
             </div>
             <div>
               <span class="label">AMOUNT OWED</span>
-              <div class="bebas" style="font-size:2rem;line-height:1;color:var(--hot);">${{ "%.6f"|format(billing.amount_owed) }}</div>
-              <div style="font-size:.65rem;opacity:.4;margin-top:2px;">USD</div>
+              <div class="bebas" style="font-size:1.9rem;line-height:1;color:var(--hot);">${{ "%.6f"|format(billing.amount_owed) }}</div>
+              <div style="font-size:.6rem;opacity:.4;margin-top:2px;">USD</div>
             </div>
           </div>
-          <!-- Tier breakdown strip -->
-          <div class="tier-bill-strip">
-            {% for tier, style in tier_styles.items() %}
-            <div class="tier-bill-cell" style="background:{{ style.bg }};color:{{ style.color }};">
-              <div style="font-size:.55rem;font-weight:700;letter-spacing:.1em;">{{ tier }}</div>
-              <div style="font-size:.6rem;opacity:.7;">${{ "%.4f"|format(tier_rates[tier]) }}/s</div>
-            </div>
-            {% endfor %}
-          </div>
-          <div style="font-size:.62rem;opacity:.4;padding-left:8px;margin-top:10px;">
+          <div style="font-size:.6rem;opacity:.4;padding-left:8px;margin-top:8px;">
             LAST CALC: {{ billing.last_calculated_at[:19] if billing.last_calculated_at else "—" }}
           </div>
         </div>
-        <a href="/invoice" class="btn btn-black btn-full" style="margin-top:12px;font-size:.7rem;padding:10px;">
-          ⎙ VIEW FULL INVOICE →
-        </a>
+        <a href="/invoice" class="btn btn-black btn-full btn-sm" style="margin-top:10px;">⎙ VIEW FULL INVOICE →</a>
         {% else %}
-        <div style="text-align:center;padding:28px 0;opacity:.3;">
-          <div class="bebas" style="font-size:1.4rem;">NO BILLING DATA</div>
-          <div style="font-size:.65rem;margin-top:4px;">run billing_engine.py</div>
+        <div style="text-align:center;padding:20px 0;opacity:.3;">
+          <div class="bebas" style="font-size:1.2rem;">NO BILLING DATA</div>
+          <div style="font-size:.62rem;margin-top:4px;">run billing_engine.py</div>
         </div>
         {% endif %}
       </div>
 
-      <!-- Reset -->
-      <div class="card-dark" style="padding:20px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-          <span class="badge" style="background:var(--hot);color:#fff;font-size:.58rem;">DANGER</span>
-          <span style="font-size:.68rem;font-weight:700;letter-spacing:.15em;color:var(--yellow);">SYSTEM RESET</span>
+      <!-- ── REQUEST CHARGES ── -->
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">REQUESTS</span>
+          <span style="font-size:.62rem;opacity:.45;">api call charges</span>
         </div>
-        <p style="font-size:.68rem;color:#777;line-height:1.65;margin-bottom:14px;">Wipes all tiers, files, billing, tier events. Users preserved.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+          <div class="card-inset" style="padding:10px;text-align:center;">
+            <div style="font-size:.55rem;font-weight:700;opacity:.5;margin-bottom:3px;">CLASS A</div>
+            <div class="bebas" style="font-size:1.6rem;color:var(--hot);">{{ req_counts.get('A',0) }}</div>
+            <div style="font-size:.55rem;opacity:.4;">writes</div>
+          </div>
+          <div class="card-inset" style="padding:10px;text-align:center;">
+            <div style="font-size:.55rem;font-weight:700;opacity:.5;margin-bottom:3px;">CLASS B</div>
+            <div class="bebas" style="font-size:1.6rem;color:var(--cool);">{{ req_counts.get('B',0) }}</div>
+            <div style="font-size:.55rem;opacity:.4;">reads</div>
+          </div>
+          <div class="card-inset" style="padding:10px;text-align:center;">
+            <div style="font-size:.55rem;font-weight:700;opacity:.5;margin-bottom:3px;">FREE</div>
+            <div class="bebas" style="font-size:1.6rem;color:#888;">{{ req_counts.get('FREE',0) }}</div>
+            <div style="font-size:.55rem;opacity:.4;">deletes</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--white);border:2px solid var(--black);">
+          <span style="font-size:.68rem;font-weight:700;opacity:.6;">REQUEST CHARGES</span>
+          <span class="bebas" style="font-size:1.3rem;color:var(--hot);">${{ "%.6f"|format(req_cost) }}</span>
+        </div>
+      </div>
+
+      <!-- ── RESET ── -->
+      <div class="card-dark" style="padding:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span class="badge" style="background:var(--hot);color:#fff;font-size:.58rem;">DANGER</span>
+          <span style="font-size:.65rem;font-weight:700;letter-spacing:.15em;color:var(--yellow);">SYSTEM RESET</span>
+        </div>
+        <p style="font-size:.65rem;color:#777;line-height:1.65;margin-bottom:12px;">
+          Wipes all buckets, files, billing, tier events. Users preserved.
+        </p>
         <button class="btn btn-red btn-full" onclick="confirmReset()">⚠ PURGE ALL DATA</button>
       </div>
 
     </aside>
 
-    <!-- RIGHT: File Table -->
-    <section>
-      <div class="file-panel" style="margin-bottom:var(--gap);">
-        <div class="file-panel-header">
-          <div class="file-panel-header-left">
-            <span class="section-tag">STORAGE MATRIX</span>
-            <span style="font-size:.65rem;opacity:.45;">{{ user.username }}'s files — download promotes to HOT</span>
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- ── BUCKET VIEW ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="tag">BUCKET VIEW</span>
+            <span style="font-size:.62rem;opacity:.45;">IBM COS ListBuckets — {{ buckets|length }} namespace(s)</span>
           </div>
-          <span style="font-size:.65rem;font-weight:700;opacity:.35;">{{ files | length }} OBJECTS</span>
+          <span style="font-size:.62rem;font-weight:700;opacity:.35;">{{ files|length }} TOTAL OBJECTS</span>
+        </div>
+        {% if buckets %}
+        <table>
+          <thead>
+            <tr>
+              <th>BUCKET NAME</th>
+              <th>CREATED</th>
+              <th>OBJECTS</th>
+              <th>TOTAL SIZE</th>
+              <th>HOT</th>
+              <th>COOL</th>
+              <th>COLD</th>
+              <th>ARCHIVE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in buckets %}
+            {% set bfiles = files|selectattr('bucket_name','equalto',b.name)|list %}
+            <tr>
+              <td><span class="badge badge-orange">{{ b.name }}</span></td>
+              <td style="font-size:.7rem;opacity:.55;">{{ b.created_at[:16] }}</td>
+              <td style="font-weight:700;">{{ bfiles|length }}</td>
+              <td style="font-weight:700;">{{ "%.4f"|format(bfiles|sum(attribute='file_size_mb')) }} MB</td>
+              <td><span class="badge badge-hot" style="font-size:.58rem;">{{ bfiles|selectattr('storage_tier','equalto','HOT')|list|length }}</span></td>
+              <td><span class="badge badge-cool" style="font-size:.58rem;">{{ bfiles|selectattr('storage_tier','equalto','COOL')|list|length }}</span></td>
+              <td><span class="badge badge-cold" style="font-size:.58rem;">{{ bfiles|selectattr('storage_tier','equalto','COLD')|list|length }}</span></td>
+              <td><span class="badge badge-archive" style="font-size:.58rem;">{{ bfiles|selectattr('storage_tier','equalto','ARCHIVE')|list|length }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><div class="bebas">NO BUCKETS</div><div style="font-size:.62rem;margin-top:6px;">CREATE A BUCKET FIRST</div></div>
+        {% endif %}
+      </div>
+
+      <!-- ── STORAGE MATRIX ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="tag">STORAGE MATRIX</span>
+            <span style="font-size:.62rem;opacity:.45;">{{ user.username }}'s objects — all buckets</span>
+          </div>
+          <span style="font-size:.62rem;font-weight:700;opacity:.35;">{{ files|length }} OBJECTS</span>
         </div>
         <div style="overflow-x:auto;">
           {% if files %}
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>FILENAME</th>
-                <th>SIZE (MB)</th>
-                <th>TIER</th>
-                <th>CREATED</th>
-                <th>LAST ACCESS</th>
-                <th>ACT</th>
+                <th>ID</th><th>BUCKET</th><th>FILENAME</th>
+                <th>SIZE (MB)</th><th>TIER</th>
+                <th>CREATED</th><th>LAST ACCESS</th><th>ACT</th>
               </tr>
             </thead>
             <tbody>
               {% for f in files %}
               <tr>
-                <td style="opacity:.38;font-size:.7rem;">#{{ f.id }}</td>
-                <td style="font-weight:700;font-size:.78rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.filename }}">{{ f.filename }}</td>
+                <td style="opacity:.35;font-size:.68rem;">#{{ f.id }}</td>
+                <td><span class="badge badge-orange" style="font-size:.58rem;">{{ f.bucket_name or 'default' }}</span></td>
+                <td style="font-weight:700;font-size:.75rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.filename }}">
+                  {{ f.filename }}
+                </td>
                 <td style="font-weight:700;">{{ "%.4f"|format(f.file_size_mb) }}</td>
                 <td>
-                  {% if f.storage_tier == "HOT" %}
+                  {% if f.storage_tier == 'HOT' %}
                     <span class="badge badge-hot"><span class="ticker">●</span> HOT</span>
-                  {% elif f.storage_tier == "COOL" %}
+                  {% elif f.storage_tier == 'COOL' %}
                     <span class="badge badge-cool">● COOL</span>
-                  {% elif f.storage_tier == "COLD" %}
+                  {% elif f.storage_tier == 'COLD' %}
                     <span class="badge badge-cold">● COLD</span>
                   {% else %}
                     <span class="badge badge-archive">● ARCHIVE</span>
                   {% endif %}
                 </td>
-                <td style="font-size:.7rem;opacity:.55;white-space:nowrap;">{{ f.created_at[:19] }}</td>
-                <td style="font-size:.7rem;opacity:.55;white-space:nowrap;">{{ f.last_accessed_at[:19] }}</td>
+                <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.created_at[:19] }}</td>
+                <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.last_accessed_at[:19] }}</td>
                 <td>
-                  <button class="btn btn-red btn-sm" onclick="quickDelete('{{ f.filename }}')">✕</button>
+                  <button class="btn btn-red btn-sm" style="padding:3px 8px;"
+                    onclick="quickDelete('{{ f.bucket_name or 'default' }}','{{ f.filename }}')">✕</button>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
           {% else %}
-          <div class="empty-state">
-            <div class="bebas">EMPTY</div>
-            <div style="font-size:.65rem;letter-spacing:.15em;margin-top:6px;">NO FILES UPLOADED YET</div>
-          </div>
+          <div class="empty-state"><div class="bebas">EMPTY</div><div style="font-size:.62rem;letter-spacing:.15em;margin-top:6px;">NO OBJECTS YET</div></div>
           {% endif %}
         </div>
       </div>
 
-      <!-- Tier Event Log -->
-      <div class="events-panel">
-        <div class="events-header">
-          <span class="section-tag">TIER EVENT LOG</span>
-          <span style="font-size:.65rem;opacity:.45;">last 10 transitions for {{ user.username }}</span>
+      <!-- ── TIER EVENT LOG ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="tag">TIER EVENT LOG</span>
+            <span style="font-size:.62rem;opacity:.45;">last 10 transitions</span>
+          </div>
         </div>
         {% if events %}
         <table>
-          <thead>
-            <tr>
-              <th>FILE</th>
-              <th>EVENT</th>
-              <th>FROM</th>
-              <th></th>
-              <th>TO</th>
-              <th>OCCURRED AT</th>
-            </tr>
-          </thead>
+          <thead><tr><th>FILE</th><th>BUCKET</th><th>EVENT</th><th>FROM</th><th></th><th>TO</th><th>OCCURRED AT</th></tr></thead>
           <tbody>
             {% for e in events %}
-            <tr class="slide-in">
+            <tr>
               <td style="font-weight:700;font-size:.75rem;">{{ e.filename }}</td>
+              <td><span class="badge badge-orange" style="font-size:.55rem;">{{ e.bucket_name or 'default' }}</span></td>
               <td>
-                {% if e.event_type == "DEMOTE" %}
-                <span class="badge" style="background:#FF6B00;color:#fff;font-size:.58rem;">DEMOTE</span>
+                {% if e.event_type == 'DEMOTE' %}
+                <span class="badge badge-hot" style="font-size:.58rem;">DEMOTE</span>
                 {% else %}
                 <span class="badge badge-green" style="font-size:.58rem;">PROMOTE</span>
                 {% endif %}
               </td>
-              <td>
-                {% if e.from_tier %}
-                  <span class="badge badge-{{ e.from_tier|lower }}" style="font-size:.58rem;">{{ e.from_tier }}</span>
-                {% else %}—{% endif %}
-              </td>
-              <td style="opacity:.4;font-size:.8rem;">→</td>
-              <td>
-                <span class="badge badge-{{ e.to_tier|lower }}" style="font-size:.58rem;">{{ e.to_tier }}</span>
-              </td>
-              <td style="font-size:.7rem;opacity:.55;">{{ e.occurred_at[:19] }}</td>
+              <td>{% if e.from_tier %}<span class="badge badge-{{ e.from_tier|lower }}" style="font-size:.55rem;">{{ e.from_tier }}</span>{% else %}—{% endif %}</td>
+              <td style="opacity:.4;">→</td>
+              <td><span class="badge badge-{{ e.to_tier|lower }}" style="font-size:.55rem;">{{ e.to_tier }}</span></td>
+              <td style="font-size:.68rem;opacity:.55;">{{ e.occurred_at[:19] }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
         {% else %}
-        <div style="text-align:center;padding:30px;opacity:.3;font-size:.75rem;">
-          No tier transitions yet. Upload a file and wait.
-        </div>
+        <div class="empty-state"><div class="bebas" style="font-size:2rem;">NO EVENTS YET</div></div>
         {% endif %}
       </div>
-    </section>
 
-  </div><!-- end main-grid -->
+    </div>
+  </div>
 
   <footer>
-    <span>STRATA // {{ user.username }} // 4-TIER ENGINE</span>
+    <span>STRATA // {{ user.username }} // v0.9.0</span>
     <span>{{ now }}</span>
     <a href="/logout">LOGOUT ↗</a>
   </footer>
-
 </div>
 <div id="toast"></div>
 
@@ -451,30 +492,62 @@
     t.classList.add("show");
     setTimeout(() => t.classList.remove("show"), 3200);
   }
-
   function setStatus(id, msg, bg) {
     const el = document.getElementById(id);
-    el.style.display    = "block";
-    el.style.background = bg || "var(--white)";
-    el.innerHTML        = msg;
+    el.style.display = "block"; el.style.background = bg || "var(--white)";
+    el.innerHTML = msg;
   }
-
   function copyKey() {
     navigator.clipboard.writeText(document.getElementById("myApiKey").value)
       .then(() => showToast("API KEY COPIED"));
   }
 
+  // ── Bucket operations ──────────────────────────────────────────────────
+  async function createBucket() {
+    const name = document.getElementById("newBucketName").value.trim().toLowerCase();
+    if (!name) { showToast("ENTER A BUCKET NAME", false); return; }
+    setStatus("bucketStatus", "⏳ Creating...");
+    const res  = await fetch(`/buckets/${encodeURIComponent(name)}`, { method: "PUT" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`BUCKET '${name}' CREATED`);
+      setTimeout(() => location.reload(), 800);
+    } else {
+      setStatus("bucketStatus", "✗ " + (data.detail || "Failed."), "#ffe0e8");
+      showToast("FAILED", false);
+    }
+  }
+
+  async function deleteBucket(name) {
+    if (!confirm(`Delete bucket '${name}'?\nIt must be empty.`)) return;
+    const res  = await fetch(`/buckets/${encodeURIComponent(name)}`, { method: "DELETE" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`BUCKET '${name}' DELETED`);
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showToast(data.detail || "Failed — bucket may not be empty.", false);
+    }
+  }
+
+  // ── Upload ─────────────────────────────────────────────────────────────
   async function uploadFile() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) { showToast("SELECT A FILE FIRST", false); return; }
+    const file   = document.getElementById("fileInput").files[0];
+    const bucket = document.getElementById("uploadBucket").value;
+    if (!file) { showToast("SELECT A FILE", false); return; }
+
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("bucket", bucket);
     setStatus("uploadStatus", "⏳ Uploading...");
+
     const res  = await fetch("/upload", { method: "POST", body: fd });
     const data = await res.json();
     if (res.ok) {
-      setStatus("uploadStatus", `✓ ${data.file_path} · ${data.file_size_mb} MB → HOT`, "var(--cold)");
-      showToast("FILE INGESTED → HOT STORAGE");
+      setStatus("uploadStatus",
+        `✓ ${data.bucket}/${data.filename} · ${data.file_size_mb} MB → HOT`,
+        "var(--cold)");
+      showToast("OBJECT UPLOADED → HOT");
       setTimeout(() => location.reload(), 1100);
     } else {
       setStatus("uploadStatus", "✗ " + (data.detail || "Failed."), "#ffe0e8");
@@ -482,74 +555,76 @@
     }
   }
 
+  // ── Download ───────────────────────────────────────────────────────────
   async function downloadFile() {
+    const bucket   = document.getElementById("objBucket").value;
     const filename = document.getElementById("objFilename").value.trim();
-    if (!filename) { showToast("ENTER A FILENAME", false); return; }
-    setStatus("objStatus", "⏳ Fetching + promoting to HOT...");
-    const res = await fetch(`/files/${encodeURIComponent(filename)}`);
+    if (!filename) { showToast("ENTER FILENAME", false); return; }
+    setStatus("objStatus", "⏳ Fetching...");
+
+    const res = await fetch(`/files/${encodeURIComponent(bucket)}/${encodeURIComponent(filename)}`);
     if (res.ok) {
+      const tier = res.headers.get("X-Storage-Tier") || "UNKNOWN";
       const blob = await res.blob();
-      const a = document.createElement("a");
+      const a    = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-      setStatus("objStatus", "✓ Downloaded. File promoted back to HOT.", "var(--cold)");
+      setStatus("objStatus",
+        `✓ Downloaded from ${tier} → promoted to HOT`,
+        "var(--cold)");
       showToast("OBJECT RETRIEVED — PROMOTED TO HOT");
       setTimeout(() => location.reload(), 1200);
     } else {
-      const d = await res.json().catch(()=>({}));
+      const d = await res.json().catch(() => ({}));
       setStatus("objStatus", "✗ " + (d.detail || `HTTP ${res.status}`), "#ffe0e8");
       showToast("DOWNLOAD FAILED", false);
     }
   }
 
+  // ── Delete ─────────────────────────────────────────────────────────────
   async function deleteFile() {
+    const bucket   = document.getElementById("objBucket").value;
     const filename = document.getElementById("objFilename").value.trim();
-    if (!filename || !confirm(`Delete '${filename}'?`)) return;
-    await _doDelete(filename);
+    if (!filename || !confirm(`Delete '${bucket}/${filename}'?`)) return;
+    await _doDelete(bucket, filename);
+  }
+  async function quickDelete(bucket, filename) {
+    if (!confirm(`Delete '${bucket}/${filename}'?`)) return;
+    await _doDelete(bucket, filename);
+  }
+  async function _doDelete(bucket, filename) {
+    const res  = await fetch(`/files/${encodeURIComponent(bucket)}/${encodeURIComponent(filename)}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { showToast("DELETED // " + filename); setTimeout(() => location.reload(), 800); }
+    else { showToast(data.detail || "DELETE FAILED", false); }
   }
 
-  async function quickDelete(filename) {
-    if (!confirm(`Delete '${filename}'?`)) return;
-    await _doDelete(filename);
-  }
-
-  async function _doDelete(filename) {
-    setStatus("objStatus", "⏳ Deleting...");
-    const res  = await fetch(`/files/${encodeURIComponent(filename)}`, { method: "DELETE" });
-    const data = await res.json().catch(()=>({}));
-    if (res.ok) {
-      showToast("DELETED // " + filename);
-      setTimeout(() => location.reload(), 800);
-    } else {
-      setStatus("objStatus", "✗ " + (data.detail || `HTTP ${res.status}`), "#ffe0e8");
-      showToast("DELETE FAILED", false);
-    }
-  }
-
+  // ── Key rotation ───────────────────────────────────────────────────────
   async function regenerateKey() {
-    if (!confirm("⚠ ROTATE KEY?\n\nOld key is immediately invalidated.\nProceed?")) return;
-    const btn    = document.getElementById("regenBtn");
-    const status = document.getElementById("regenStatus");
+    if (!confirm("⚠ ROTATE KEY?\nOld key immediately invalidated.\nProceed?")) return;
+    const btn = document.getElementById("regenBtn");
     btn.textContent = "..."; btn.disabled = true;
     const res  = await fetch("/me/regenerate-key", { method: "POST" });
     const data = await res.json();
     if (res.ok) {
       document.getElementById("myApiKey").value = data.new_api_key;
-      status.style.display = "block"; status.style.background = "var(--green)"; status.style.color = "#000";
-      status.innerHTML = `✓ New key: <strong>${data.new_api_key}</strong><br/><span style="opacity:.6;font-size:.65rem;">Rotated at ${data.rotated_at.slice(0,19)} UTC</span>`;
+      const s = document.getElementById("regenStatus");
+      s.style.display = "block"; s.style.background = "var(--green)"; s.style.color = "#000";
+      s.innerHTML = `✓ New key: <strong>${data.new_api_key}</strong>`;
       showToast("API KEY ROTATED");
-    } else {
-      status.style.display = "block"; status.innerHTML = "✗ " + (data.detail || "Failed.");
-      showToast("ROTATION FAILED", false);
-    }
+    } else { showToast("ROTATION FAILED", false); }
     btn.textContent = "↻ ROTATE"; btn.disabled = false;
   }
 
+  // ── System reset ───────────────────────────────────────────────────────
   async function confirmReset() {
-    if (!confirm("⚠ PURGE ALL DATA?\n\nAll tiers, files, billing, tier events wiped.\nUsers preserved.\nProceed?")) return;
+    if (!confirm("⚠ PURGE ALL DATA?\n\nAll buckets, files, billing wiped.\nUsers preserved.\nProceed?")) return;
     await fetch("/system/reset", { method: "POST" });
-    showToast("SYSTEM WIPED");
+    showToast("SYSTEM WIPED — ALL CLEAR");
     setTimeout(() => location.reload(), 1000);
   }
+
+  // Auto-refresh every 30 seconds
+  setTimeout(() => location.reload(), 30000);
 </script>
 </body>
 </html>
