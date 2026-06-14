@@ -134,22 +134,22 @@
     <div class="stat-card" style="background:var(--hot);color:#fff;">
       <span class="label" style="color:#fff;opacity:.8;">HOT</span>
       <div class="stat-num">{{ counts.HOT }}</div>
-      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.001/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">₹{{ '%.6f'|format(tier_rates['HOT']) }}/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--cool);color:#fff;">
       <span class="label" style="color:#fff;opacity:.8;">COOL</span>
       <div class="stat-num">{{ counts.COOL }}</div>
-      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.0004/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">₹{{ '%.6f'|format(tier_rates['COOL']) }}/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--cold);color:#000;">
       <span class="label" style="opacity:.65;">COLD</span>
       <div class="stat-num">{{ counts.COLD }}</div>
-      <div style="font-size:.58rem;opacity:.6;margin-top:3px;">$0.0002/MB/s</div>
+      <div style="font-size:.58rem;opacity:.6;margin-top:3px;">₹{{ '%.6f'|format(tier_rates['COLD']) }}/MB/s</div>
     </div>
     <div class="stat-card" style="background:var(--archive);color:#fff;">
       <span class="label" style="opacity:.8;">ARCHIVE</span>
       <div class="stat-num">{{ counts.ARCHIVE }}</div>
-      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">$0.00005/MB/s</div>
+      <div style="font-size:.58rem;opacity:.7;margin-top:3px;">₹{{ '%.6f'|format(tier_rates['ARCHIVE']) }}/MB/s</div>
     </div>
   </div>
 
@@ -183,8 +183,8 @@
         </div>
 
         <!-- Existing buckets -->
-        {% for b in buckets %}
-        <div class="card-inset" style="padding:10px 14px;margin-bottom:8px;">
+            {% for b in buckets %}
+          <div class="card-inset" style="padding:10px 14px;margin-bottom:8px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
               <span class="badge badge-orange" style="font-size:.6rem;">{{ b.name }}</span>
@@ -192,7 +192,7 @@
             </div>
             {% if b.name != 'default' %}
             <button class="btn btn-red btn-sm" style="padding:3px 8px;box-shadow:2px 2px 0 #aa1040;"
-              onclick="deleteBucket('{{ b.name }}')">✕</button>
+              onclick="deleteBucket({{ b.name|tojson }})">✕</button>
             {% else %}
             <span style="font-size:.55rem;opacity:.3;">DEFAULT</span>
             {% endif %}
@@ -273,12 +273,23 @@
               <div style="font-size:.6rem;opacity:.4;margin-top:2px;">hrs</div>
             </div>
             <div>
-              <span class="label">AMOUNT OWED</span>
-              <div class="bebas" style="font-size:1.9rem;line-height:1;color:var(--hot);">${{ "%.6f"|format(billing.amount_owed) }}</div>
-              <div style="font-size:.6rem;opacity:.4;margin-top:2px;">USD</div>
+              <span class="label">BALANCE DUE</span>
+              <div class="bebas" style="font-size:1.9rem;line-height:1;
+                color:{% if balance_due <= 0 %}#00FF85{% else %}var(--hot){% endif %};">
+                ₹{{ "%.6f"|format(balance_due) }}
+                {% if balance_due <= 0 %} ✓{% endif %}
+              </div>
+              <div style="font-size:.6rem;opacity:.4;margin-top:2px;">
+                {% if balance_due <= 0 %}settled{% else %}after payments{% endif %}
+              </div>
             </div>
           </div>
-          <div style="font-size:.6rem;opacity:.4;padding-left:8px;margin-top:8px;">
+          {% if payments_made > 0 %}
+          <div style="padding-left:8px;margin-top:8px;font-size:.62rem;opacity:.5;">
+            Total charges: ₹{{ "%.6f"|format(total_charges) }} · Paid: ₹{{ "%.6f"|format(payments_made) }}
+          </div>
+          {% endif %}
+          <div style="font-size:.6rem;opacity:.4;padding-left:8px;margin-top:4px;">
             LAST CALC: {{ billing.last_calculated_at[:19] if billing.last_calculated_at else "—" }}
           </div>
         </div>
@@ -316,7 +327,47 @@
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--white);border:2px solid var(--black);">
           <span style="font-size:.68rem;font-weight:700;opacity:.6;">REQUEST CHARGES</span>
-          <span class="bebas" style="font-size:1.3rem;color:var(--hot);">${{ "%.6f"|format(req_cost) }}</span>
+          <span class="bebas" style="font-size:1.3rem;color:var(--hot);">₹{{ "%.6f"|format(req_cost) }}</span>
+        </div>
+      </div>
+
+      <!-- ── BANDWIDTH ── -->
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span class="tag">BANDWIDTH</span>
+          <span style="font-size:.62rem;opacity:.45;">egress billed · ingress free</span>
+        </div>
+        <!-- Egress row -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--white);border:2px solid var(--black);margin-bottom:6px;">
+          <div>
+            <span class="badge" style="background:var(--orange);color:#fff;font-size:.55rem;">⬇ EGRESS</span>
+            <div style="font-size:.65rem;font-weight:700;margin-top:4px;">
+              {{ bw_totals.get('egress', {}).get('mb', 0) }} MB
+              <span style="opacity:.4;font-weight:400;"> · {{ bw_totals.get('egress', {}).get('ops', 0) }} download(s)</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="bebas" style="font-size:1.3rem;color:var(--orange);">₹{{ "%.6f"|format(bw_cost) }}</div>
+            <div style="font-size:.55rem;opacity:.4;">₹{{ '%.4f'|format(bw_rate_per_mb * 1024) }}/GB</div>
+          </div>
+        </div>
+        <!-- Ingress row -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--white);border:2px solid var(--black);">
+          <div>
+            <span class="badge badge-green" style="font-size:.55rem;">⬆ INGRESS</span>
+            <div style="font-size:.65rem;font-weight:700;margin-top:4px;">
+              {{ bw_totals.get('ingress', {}).get('mb', 0) }} MB
+              <span style="opacity:.4;font-weight:400;"> · {{ bw_totals.get('ingress', {}).get('ops', 0) }} upload(s)</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="bebas" style="font-size:1.3rem;color:#888;">FREE</div>
+            <div style="font-size:.55rem;opacity:.4;">always ₹0.000</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;padding:8px 12px;background:var(--black);border:2px solid var(--black);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:.65rem;color:var(--yellow);font-weight:700;letter-spacing:.1em;">TOTAL BANDWIDTH CHARGE</span>
+          <span class="bebas" style="font-size:1.3rem;color:var(--orange);">₹{{ "%.6f"|format(bw_cost) }}</span>
         </div>
       </div>
 
@@ -424,7 +475,7 @@
                 <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.last_accessed_at[:19] }}</td>
                 <td>
                   <button class="btn btn-red btn-sm" style="padding:3px 8px;"
-                    onclick="quickDelete('{{ f.bucket_name or 'default' }}','{{ f.filename }}')">✕</button>
+                    onclick="quickDelete({{ (f.bucket_name or 'default')|tojson }}, {{ f.filename|tojson }})">✕</button>
                 </td>
               </tr>
               {% endfor %}
