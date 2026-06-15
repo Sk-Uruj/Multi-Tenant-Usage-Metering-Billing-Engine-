@@ -1,12 +1,11 @@
 """
-STRATA v0.9.0 — main.py
-Feature added this step: Bucket/Namespace System
-  - PUT    /buckets/{name}   create bucket  (IBM COS equivalent)
-  - GET    /buckets          list buckets   (ListBuckets)
-  - GET    /buckets/{name}   list objects in bucket
-  - DELETE /buckets/{name}   delete empty bucket
-  - Upload now accepts a bucket= form field
-  - Download/delete now use /files/{bucket}/{filename} paths
+STRATA v0.9.1 — main.py
+Features:
+  - Bucket/Namespace System (IBM COS ListBuckets)
+  - Bandwidth/Egress Metering (Feature 3)
+      Every download logs bytes transferred to bandwidth_logs
+      Ingress (upload) is FREE — matching IBM COS pricing
+    Egress rate (IBM COS USD base): $0.0087/GB = $0.0000087/MB — converted to INR at startup via `USD_TO_INR`
 """
 
 import os
@@ -54,6 +53,23 @@ REQUEST_RATES = {
     "FREE": 0.0,
 }
 
+# IBM COS egress rate (USD base): $0.0087 per GB = $0.0000087 per MB — converted to INR at startup
+# Source: cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-billing
+# Ingress (upload) is always FREE — matching IBM COS, AWS S3, Azure Blob behaviour
+BANDWIDTH_RATE_PER_MB = 0.0087 / 1024   # USD base: 0.0000087/MB (converted to INR at startup)
+
+# Currency conversion: display and calculate in INR for Indian deployments.
+# Set USD_TO_INR in the environment to override the default (e.g. 82.0).
+USD_TO_INR = float(os.getenv("USD_TO_INR", "82.0"))
+
+# Convert configured USD rates to INR so all billing and templates show INR.
+for k in list(TIER_RATES.keys()):
+    TIER_RATES[k] = round(TIER_RATES[k] * USD_TO_INR, 9)
+
+for k in list(REQUEST_RATES.keys()):
+    REQUEST_RATES[k] = REQUEST_RATES[k] * USD_TO_INR
+
+BANDWIDTH_RATE_PER_MB = BANDWIDTH_RATE_PER_MB * USD_TO_INR
 app = FastAPI(title="STRATA — Multi-Tenant Cloud Storage Engine", version="0.9.0")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
 templates = Jinja2Templates(directory="templates")
@@ -176,6 +192,45 @@ def promote_to_hot(conn, row: dict, username: str, bucket: str, now_iso: str):
         (now_iso, now_iso, file_id),
     )
     log_tier_event(conn, file_id, user_id, current, "HOT", "PROMOTE", now_iso)
+
+
+def log_bandwidth(
+    conn,
+    user_id:   int,
+    file_id:   int,
+    bucket:    str,
+    filename:  str,
+    size_mb:   float,
+    direction: str = "egress",
+) -> None:
+    """
+    Log a bandwidth event to bandwidth_logs.
+
+    IBM COS billing model:
+      egress  (download) → billed at BANDWIDTH_RATE_PER_MB
+      ingress (upload)   → FREE (logged for analytics but rate = 0)
+
+    Every download creates one row. The billing engine
+    sums all egress rows per user to calculate bandwidth charges.
+    """
+    conn.execute(
+        """
+        INSERT INTO bandwidth_logs
+               (user_id, file_id, bucket_name, filename,
+                bytes_transferred, mb_transferred, direction, occurred_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            file_id,
+            bucket,
+            filename,
+            int(size_mb * 1024 * 1024),
+            round(size_mb, 6),
+            direction,
+            datetime.utcnow().isoformat(),
+        ),
+    )
 
 # ---------------------------------------------------------------------------
 # AUTH
@@ -449,6 +504,18 @@ async def upload_file(
             """,
             (user_id, bucket_id, file.filename, file_size_mb, now, now, now),
         )
+
+        # Log ingress bandwidth — FREE per IBM COS pricing, tracked for analytics
+        log_bandwidth(
+            conn,
+            user_id   = user_id,
+            file_id   = cursor.lastrowid,
+            bucket    = bucket,
+            filename  = file.filename,
+            size_mb   = file_size_mb,
+            direction = "ingress",
+        )
+
         conn.commit()
 
     except HTTPException:
@@ -513,6 +580,19 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
 
         now_iso = datetime.utcnow().isoformat()
         promote_to_hot(conn, row_dict, username, bucket, now_iso)
+
+        # ── Log egress bandwidth (IBM COS billing dimension 3) ─────────────
+        # Ingress is FREE. Only egress (downloads) are billed.
+        log_bandwidth(
+            conn,
+            user_id  = user_id,
+            file_id  = row_dict["id"],
+            bucket   = bucket,
+            filename = filename,
+            size_mb  = row_dict["file_size_mb"],
+            direction = "egress",
+        )
+
         conn.commit()
 
         hot_path = tier_file_path("HOT", username, bucket, filename)
@@ -667,35 +747,69 @@ def dashboard(request: Request, current_user: SessionUser):
             (user_id,),
         ).fetchall()
 
+        # Bandwidth totals for dashboard summary
+        bw_summary = conn.execute(
+            """
+            SELECT direction,
+                   COALESCE(SUM(mb_transferred), 0) as total_mb,
+                   COUNT(*) as ops
+            FROM   bandwidth_logs
+            WHERE  user_id = ?
+            GROUP  BY direction
+            """,
+            (user_id,),
+        ).fetchall()
+
+        # Payments made — needed to show balance due on dashboard
+        dash_paid = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) as total_paid FROM payments WHERE user_id=? AND status='paid'",
+            (user_id,),
+        ).fetchone()
+
     finally:
         conn.close()
 
     files_list  = [dict(r) for r in files]
     events_list = [dict(r) for r in events]
     req_counts  = {r["op_class"]: r["cnt"] for r in req_summary}
+    bw_totals   = {r["direction"]: {"mb": round(r["total_mb"], 4), "ops": r["ops"]}
+                   for r in bw_summary}
     counts      = {t: sum(1 for f in files_list if f["storage_tier"] == t)
                    for t in TIER_DIRS}
     req_cost    = (
         req_counts.get("A", 0) * REQUEST_RATES["A"] +
         req_counts.get("B", 0) * REQUEST_RATES["B"]
     )
+    egress_mb     = bw_totals.get("egress",  {}).get("mb", 0)
+    bw_cost       = round(egress_mb * BANDWIDTH_RATE_PER_MB, 8)
+    total_charges = round((billing["amount_owed"] if billing else 0) + req_cost + bw_cost, 6)
+    payments_made = round(dash_paid["total_paid"], 6) if dash_paid else 0.0
+    balance_due   = round(max(total_charges - payments_made, 0), 6)
 
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
-            "user":        current_user,
-            "files":       files_list,
-            "buckets":     [dict(r) for r in buckets],
-            "billing":     dict(billing) if billing else None,
-            "events":      events_list,
-            "tier_styles": TIER_STYLES,
-            "tier_rates":  TIER_RATES,
-            "counts":      counts,
-            "now":         datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "total_mb":    round(sum(f["file_size_mb"] for f in files_list), 4),
-            "req_counts":  req_counts,
-            "req_cost":    round(req_cost, 8),
+            "user":          current_user,
+            "files":         files_list,
+            "buckets":       [dict(r) for r in buckets],
+            "billing":       dict(billing) if billing else None,
+            "events":        events_list,
+            "tier_styles":   TIER_STYLES,
+            "tier_rates":    TIER_RATES,
+            "counts":        counts,
+            "now":           datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "total_mb":      round(sum(f["file_size_mb"] for f in files_list), 4),
+            "req_counts":    req_counts,
+            "req_cost":      round(req_cost, 8),
+            "bw_totals":     bw_totals,
+            "bw_cost":       bw_cost,
+            "bw_rate_per_mb": BANDWIDTH_RATE_PER_MB,
+            "req_rates": REQUEST_RATES,
+            "egress_mb":     egress_mb,
+            "total_charges": total_charges,
+            "payments_made": payments_made,
+            "balance_due":   balance_due,
         },
     )
 
@@ -732,12 +846,63 @@ def invoice_page(request: Request, current_user: SessionUser):
             (user_id,),
         ).fetchall()
 
+        # Full bandwidth breakdown
+        bw_by_direction = conn.execute(
+            """
+            SELECT direction,
+                   COALESCE(SUM(mb_transferred), 0) as total_mb,
+                   COALESCE(SUM(bytes_transferred), 0) as total_bytes,
+                   COUNT(*) as ops
+            FROM   bandwidth_logs
+            WHERE  user_id = ?
+            GROUP  BY direction
+            """,
+            (user_id,),
+        ).fetchall()
+
+        # Per-file egress breakdown (last 20 downloads)
+        recent_bw = conn.execute(
+            """
+            SELECT bucket_name, filename, mb_transferred,
+                   bytes_transferred, direction, occurred_at
+            FROM   bandwidth_logs
+            WHERE  user_id = ?
+            ORDER  BY occurred_at DESC
+            LIMIT  20
+            """,
+            (user_id,),
+        ).fetchall()
+
+        # Payments made — must be queried before conn closes
+        paid_row = conn.execute(
+            """
+            SELECT COALESCE(SUM(amount),0) as total_paid,
+                   COUNT(*) as payment_count
+            FROM   payments
+            WHERE  user_id=? AND status='paid'
+            """,
+            (user_id,),
+        ).fetchone()
+
     finally:
         conn.close()
 
-    files_list  = [dict(r) for r in files]
-    req_counts  = {r["op_class"]: r["cnt"] for r in req_by_class}
-    recent_reqs = [dict(r) for r in recent_reqs]
+    files_list      = [dict(r) for r in files]
+    req_counts      = {r["op_class"]: r["cnt"] for r in req_by_class}
+    recent_reqs     = [dict(r) for r in recent_reqs]
+    bw_stats        = {r["direction"]: {
+                           "mb":    round(r["total_mb"], 4),
+                           "bytes": r["total_bytes"],
+                           "ops":   r["ops"],
+                       } for r in bw_by_direction}
+    recent_bw       = [dict(r) for r in recent_bw]
+
+    egress_mb       = bw_stats.get("egress",  {}).get("mb", 0)
+    ingress_mb      = bw_stats.get("ingress", {}).get("mb", 0)
+    egress_ops      = bw_stats.get("egress",  {}).get("ops", 0)
+    ingress_ops     = bw_stats.get("ingress", {}).get("ops", 0)
+    egress_cost     = egress_mb * BANDWIDTH_RATE_PER_MB
+    total_bw_cost   = egress_cost   # ingress is always FREE
 
     def parse_dt(val):
         if not val: return None
@@ -810,7 +975,12 @@ def invoice_page(request: Request, current_user: SessionUser):
     class_b_cost   = class_b_count * REQUEST_RATES["B"]
     total_req_cost = class_a_cost + class_b_cost
     storage_cost   = billing["amount_owed"] if billing else 0.0
-    grand_total    = storage_cost + total_req_cost
+    grand_total    = storage_cost + total_req_cost + total_bw_cost
+
+    # Use paid_row fetched inside the try block above
+    payments_made = round(paid_row["total_paid"],  6) if paid_row else 0.0
+    payment_count = paid_row["payment_count"]          if paid_row else 0
+    balance_due   = round(max(grand_total - payments_made, 0), 6)
 
     counts = {t: sum(1 for f in files_list if f["storage_tier"] == t)
               for t in TIER_RATES}
@@ -828,13 +998,178 @@ def invoice_page(request: Request, current_user: SessionUser):
             "period_start": first_file[:16] if first_file else "—",
             "total_mb": round(sum(f["file_size_mb"] for f in files_list), 4),
             "tier_styles": TIER_STYLES, "tier_rates": TIER_RATES,
+            # Request charges
             "class_a_count": class_a_count, "class_b_count": class_b_count,
             "free_count": free_count, "class_a_cost": class_a_cost,
             "class_b_cost": class_b_cost, "total_req_cost": total_req_cost,
-            "storage_cost": storage_cost, "grand_total": grand_total,
-            "recent_reqs": recent_reqs, "req_rates": REQUEST_RATES,
+            # Bandwidth charges
+            "egress_mb":    egress_mb,
+            "ingress_mb":   ingress_mb,
+            "egress_ops":   egress_ops,
+            "ingress_ops":  ingress_ops,
+            "egress_cost":  egress_cost,
+            "total_bw_cost": total_bw_cost,
+            "bw_rate_per_mb": BANDWIDTH_RATE_PER_MB,
+            "recent_bw":    recent_bw,
+            # Totals
+            "storage_cost": storage_cost,
+            "grand_total":  grand_total,
+            "payments_made":  payments_made,
+            "payment_count":  payment_count,
+            "balance_due":    balance_due,
+            "recent_reqs":  recent_reqs,
+            "req_rates":    REQUEST_RATES,
         },
     )
+
+# ---------------------------------------------------------------------------
+# PAYMENT GATEWAY
+# ---------------------------------------------------------------------------
+
+def generate_payment_id() -> str:
+    import random, string
+    timestamp = datetime.utcnow().strftime("%Y%m%d")
+    suffix    = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    return f"PAY-{timestamp}-{suffix}"
+
+
+def get_grand_total(conn, user_id: int) -> dict:
+    billing = conn.execute(
+        "SELECT amount_owed FROM billing_records WHERE user_id=?", (user_id,)
+    ).fetchone()
+    storage_cost = billing["amount_owed"] if billing else 0.0
+
+    req_rows = conn.execute(
+        "SELECT op_class, COUNT(*) as cnt FROM request_logs WHERE user_id=? GROUP BY op_class",
+        (user_id,),
+    ).fetchall()
+    request_cost = sum(r["cnt"] * REQUEST_RATES.get(r["op_class"], 0) for r in req_rows)
+
+    bw = conn.execute(
+        "SELECT COALESCE(SUM(mb_transferred),0) as total_mb FROM bandwidth_logs WHERE user_id=? AND direction='egress'",
+        (user_id,),
+    ).fetchone()
+    bandwidth_cost = (bw["total_mb"] * BANDWIDTH_RATE_PER_MB) if bw else 0.0
+
+    return {
+        "storage_cost":   round(storage_cost,   6),
+        "request_cost":   round(request_cost,   6),
+        "bandwidth_cost": round(bandwidth_cost, 6),
+        "grand_total":    round(storage_cost + request_cost + bandwidth_cost, 6),
+    }
+
+
+@app.post("/payment/process", include_in_schema=False)
+async def process_payment(request: Request, current_user: SessionUser):
+    user_id    = current_user["id"]
+    body       = await request.json()
+    card_last4 = body.get("card_last4", "****")
+    card_type  = body.get("card_type",  "VISA")
+
+    conn = get_conn()
+    try:
+        totals = get_grand_total(conn, user_id)
+
+        # Subtract what's already been paid — only charge the remaining balance
+        paid_row = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) as total_paid FROM payments WHERE user_id=? AND status='paid'",
+            (user_id,),
+        ).fetchone()
+        already_paid = paid_row["total_paid"] if paid_row else 0.0
+        balance_due  = round(max(totals["grand_total"] - already_paid, 0), 6)
+
+        if balance_due <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="No outstanding balance. Your account is fully settled."
+            )
+
+        payment_id = generate_payment_id()
+        now_iso    = datetime.utcnow().isoformat()
+
+        # Apportion balance_due across dimensions proportionally
+        total = totals["grand_total"] or 1
+        ratio = balance_due / total
+        s_charge = round(totals["storage_cost"]   * ratio, 6)
+        r_charge = round(totals["request_cost"]   * ratio, 6)
+        b_charge = round(totals["bandwidth_cost"] * ratio, 6)
+
+        conn.execute(
+            """
+            INSERT INTO payments
+                   (user_id, payment_id, amount, currency, status,
+                    storage_charge, request_charge, bandwidth_charge,
+                    card_last4, card_type, created_at, paid_at)
+            VALUES (?, ?, ?, 'INR', 'paid', ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, payment_id, balance_due,
+             s_charge, r_charge, b_charge,
+             card_last4, card_type, now_iso, now_iso),
+        )
+        conn.commit()
+
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    finally:
+        conn.close()
+
+    return JSONResponse(status_code=200, content={
+        "success":    True,
+        "payment_id": payment_id,
+        "amount":     balance_due,
+        "currency":   "INR",
+        "paid_at":    now_iso,
+        "breakdown": {
+            "storage":   s_charge,
+            "requests":  r_charge,
+            "bandwidth": b_charge,
+        },
+    })
+
+
+@app.get("/payment/history", include_in_schema=False)
+def payment_history(current_user: SessionUser):
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """
+            SELECT payment_id, amount, currency, status,
+                   storage_charge, request_charge, bandwidth_charge,
+                   card_last4, card_type, created_at, paid_at
+            FROM   payments WHERE user_id=? ORDER BY created_at DESC
+            """,
+            (current_user["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {"username": current_user["username"],
+            "payments": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.get("/payment/receipt/{payment_id}", include_in_schema=False)
+def payment_receipt(payment_id: str, request: Request, current_user: SessionUser):
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM payments WHERE payment_id=? AND user_id=?",
+            (payment_id, current_user["id"]),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Payment not found.")
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request=request, name="receipt.html",
+        context={
+            "user":    current_user,
+            "payment": dict(row),
+            "now":     datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        },
+    )
+
 
 # ---------------------------------------------------------------------------
 # ME + KEY ROTATION + RESET
