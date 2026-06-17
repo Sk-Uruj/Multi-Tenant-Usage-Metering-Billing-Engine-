@@ -3,8 +3,8 @@ STRATA v0.9.1 — billing_engine.py
 Three billing dimensions — exact IBM COS model:
 
   1. Storage charges   — file_size_mb × seconds_in_tier × tier_rate
-    2. Request charges   — Class A (converted from USD) / Class B (converted from USD) / FREE
-    3. Bandwidth charges — egress MB × (IBM COS USD rate converted to INR)  |  ingress = FREE
+  2. Request charges   — Class A / Class B (converted from USD to INR) / FREE
+  3. Bandwidth charges — egress MB × IBM COS rate (converted to INR) | ingress = FREE
 
 Run with:
     python billing_engine.py
@@ -19,7 +19,7 @@ from datetime import datetime
 DB_NAME            = "cloud_storage.db"
 POLL_INTERVAL_SECS = 10
 
-# Storage rates per MB per second
+# Storage rates per MB per second (USD base)
 RATES = {
     "HOT":     0.001000,
     "COOL":    0.000400,
@@ -28,23 +28,21 @@ RATES = {
 }
 TIER_ORDER = ["HOT", "COOL", "COLD", "ARCHIVE"]
 
-# Request rates per single operation
+# Request rates per single operation (USD base)
 REQUEST_RATES = {
-    "A":    0.005  / 1000,   # USD base: 0.005 per 1,000 write ops (converted to INR at startup)
-    "B":    0.0004 / 1000,   # USD base: 0.0004 per 1,000 read ops (converted to INR at startup)
+    "A":    0.005  / 1000,
+    "B":    0.0004 / 1000,
     "FREE": 0.0,
 }
 
-# IBM COS egress rate (USD base): 0.0087/GB == 0.0087/1024 per MB — converted to INR at startup
-# Source: cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-billing
-# BANDWIDTH_RATE_PER_MB (USD base) = 0.0087 / 1024   # ~0.0000087 per MB (converted to INR at startup)
-# Define the USD-base bandwidth rate per MB before converting to INR
+# IBM COS egress rate (USD base): $0.0087/GB = $0.0087/1024 per MB
 BANDWIDTH_RATE_PER_MB = 0.0087 / 1024
-# Ingress is always FREE (matches IBM COS, AWS S3, Azure Blob)
 
-# Currency conversion: convert USD rates to INR for display and billing.
-# Override with environment variable USD_TO_INR (e.g. USD_TO_INR=82.0).
-USD_TO_INR = float(os.getenv("USD_TO_INR", "82.0"))
+# ---------------------------------------------------------------------------
+# Currency conversion — FIX: default corrected to 83.5
+# Set USD_TO_INR env variable to override (e.g. USD_TO_INR=84.0)
+# ---------------------------------------------------------------------------
+USD_TO_INR = float(os.getenv("USD_TO_INR", "83.5"))
 
 for k in list(RATES.keys()):
     RATES[k] = round(RATES[k] * USD_TO_INR, 9)
@@ -52,7 +50,6 @@ for k in list(RATES.keys()):
 for k in list(REQUEST_RATES.keys()):
     REQUEST_RATES[k] = REQUEST_RATES[k] * USD_TO_INR
 
-# Convert bandwidth rate to INR
 BANDWIDTH_RATE_PER_MB = BANDWIDTH_RATE_PER_MB * USD_TO_INR
 
 # ---------------------------------------------------------------------------
@@ -88,19 +85,10 @@ def fmt_duration(secs):
 
 
 # ---------------------------------------------------------------------------
-# Dimension 1 — Storage cost calculation per file
+# Dimension 1 — Storage cost per file (blended across tier windows)
 # ---------------------------------------------------------------------------
 
 def calc_storage_cost(row, now) -> dict:
-    """
-    Splits a file's lifetime across the tiers it has lived in
-    and applies the correct rate for each window.
-
-    Returns:
-        breakdown  — cost per tier dict
-        total_secs — total tracked seconds
-        total_cost — sum of all tier costs
-    """
     created_dt = parse_dt(row["created_at"])
     hot_in     = parse_dt(row["hot_entered_at"])  or created_dt
     cool_in    = parse_dt(row["cool_entered_at"])
@@ -144,7 +132,7 @@ def calculate_tenant_bills() -> None:
     try:
         now = datetime.utcnow()
 
-        # ── Dimension 1: Storage charges ───────────────────────────────────
+        # ── Dimension 1: Storage ───────────────────────────────────────────
         file_rows = conn.execute(
             """
             SELECT f.id, f.user_id, f.filename, f.file_size_mb,
@@ -171,43 +159,36 @@ def calculate_tenant_bills() -> None:
         for row in file_rows:
             user_id = row["user_id"]
             result  = calc_storage_cost(row, now)
-
             user_storage[user_id]["username"]   = row["username"]
             user_storage[user_id]["total_cost"] += result["total_cost"]
             user_storage[user_id]["total_secs"] += result["total_secs"]
             for t in TIER_ORDER:
                 user_storage[user_id]["by_tier"][t] += result["breakdown"][t]
             user_storage[user_id]["files"].append({
-                "filename":   row["filename"],
-                "bucket":     row["bucket_name"],
-                "size_mb":    row["file_size_mb"],
-                "tier":       row["storage_tier"],
-                "cost":       result["total_cost"],
+                "filename": row["filename"],
+                "bucket":   row["bucket_name"],
+                "size_mb":  row["file_size_mb"],
+                "tier":     row["storage_tier"],
+                "cost":     result["total_cost"],
             })
 
-        # ── Dimension 2: Request charges ────────────────────────────────────
+        # ── Dimension 2: Requests ──────────────────────────────────────────
         req_rows = conn.execute(
-            """
-            SELECT user_id, op_class, COUNT(*) as cnt
-            FROM   request_logs
-            GROUP  BY user_id, op_class
-            """
+            "SELECT user_id, op_class, COUNT(*) as cnt FROM request_logs GROUP BY user_id, op_class"
         ).fetchall()
 
-        req_costs = defaultdict(float)
+        req_costs  = defaultdict(float)
         req_counts = defaultdict(lambda: {"A": 0, "B": 0, "FREE": 0})
         for r in req_rows:
             uid = r["user_id"]
-            req_costs[uid]          += r["cnt"] * REQUEST_RATES.get(r["op_class"], 0)
+            req_costs[uid] += r["cnt"] * REQUEST_RATES.get(r["op_class"], 0)
             req_counts[uid][r["op_class"]] = r["cnt"]
 
-        # ── Dimension 3: Bandwidth charges ──────────────────────────────────
-        # Only egress is billed. Ingress is FREE.
+        # ── Dimension 3: Bandwidth (egress only) ──────────────────────────
         bw_rows = conn.execute(
             """
-            SELECT user_id,
-                   direction,
-                   COALESCE(SUM(mb_transferred), 0) as total_mb,
+            SELECT user_id, direction,
+                   COALESCE(SUM(mb_transferred),0) as total_mb,
                    COUNT(*) as ops
             FROM   bandwidth_logs
             GROUP  BY user_id, direction
@@ -233,15 +214,14 @@ def calculate_tenant_bills() -> None:
             for uid in set(list(bw_egress_mb.keys()) + list(user_storage.keys()))
         }
 
-        # ── Collect all user IDs across all dimensions ──────────────────────
         all_user_ids = set(
             list(user_storage.keys()) +
             list(req_costs.keys()) +
             list(bw_costs.keys())
         )
 
-        # ── Upsert billing_records ──────────────────────────────────────────
-        now_iso = now.isoformat()
+        # ── Upsert billing_records ─────────────────────────────────────────
+        now_iso         = now.isoformat()
         billing_summary = {}
 
         for user_id in all_user_ids:
@@ -259,10 +239,8 @@ def calculate_tenant_bills() -> None:
                 conn.execute(
                     """
                     UPDATE billing_records
-                    SET    total_hours_tracked = ?,
-                           amount_owed         = ?,
-                           last_calculated_at  = ?
-                    WHERE  user_id = ?
+                    SET    total_hours_tracked=?, amount_owed=?, last_calculated_at=?
+                    WHERE  user_id=?
                     """,
                     (total_hours, amount_owed, now_iso, user_id),
                 )
@@ -271,25 +249,25 @@ def calculate_tenant_bills() -> None:
                     """
                     INSERT INTO billing_records
                            (user_id, total_hours_tracked, amount_owed, last_calculated_at)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?,?,?,?)
                     """,
                     (user_id, total_hours, amount_owed, now_iso),
                 )
 
             billing_summary[user_id] = {
-                "username":      user_storage[user_id]["username"],
-                "storage_cost":  storage_cost,
-                "request_cost":  request_cost,
+                "username":       user_storage[user_id]["username"],
+                "storage_cost":   storage_cost,
+                "request_cost":   request_cost,
                 "bandwidth_cost": bandwidth_cost,
-                "amount_owed":   amount_owed,
-                "total_hours":   total_hours,
-                "by_tier":       user_storage[user_id]["by_tier"],
-                "files":         user_storage[user_id]["files"],
-                "req_counts":    req_counts[user_id],
-                "egress_mb":     bw_egress_mb.get(user_id, 0.0),
-                "ingress_mb":    bw_ingress_mb.get(user_id, 0.0),
-                "egress_ops":    bw_egress_ops.get(user_id, 0),
-                "ingress_ops":   bw_ingress_ops.get(user_id, 0),
+                "amount_owed":    amount_owed,
+                "total_hours":    total_hours,
+                "by_tier":        user_storage[user_id]["by_tier"],
+                "files":          user_storage[user_id]["files"],
+                "req_counts":     req_counts[user_id],
+                "egress_mb":      bw_egress_mb.get(user_id, 0.0),
+                "ingress_mb":     bw_ingress_mb.get(user_id, 0.0),
+                "egress_ops":     bw_egress_ops.get(user_id, 0),
+                "ingress_ops":    bw_ingress_ops.get(user_id, 0),
             }
 
         conn.commit()
@@ -303,7 +281,7 @@ def calculate_tenant_bills() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Dashboard renderer — terminal billing report
+# Terminal dashboard — FIX: uses actual INR rates, not hardcoded USD strings
 # ---------------------------------------------------------------------------
 
 def _print_dashboard(billing_summary: dict, now: datetime) -> None:
@@ -312,14 +290,15 @@ def _print_dashboard(billing_summary: dict, now: datetime) -> None:
 
     print()
     print(f"┌{div}┐")
-    print(f"│{'  STRATA — 3-DIMENSION IBM COS BILLING ENGINE':^{W}}│")
+    print(f"│{'  STRATA — 3-DIMENSION IBM COS BILLING ENGINE (INR)':^{W}}│")
     print(f"│{'  ' + now.strftime('%Y-%m-%d %H:%M:%S UTC'):^{W}}│")
     print(f"├{div}┤")
-    print(f"│  {'DIMENSION':12} {'WHAT IS CHARGED':32} {'RATE':28}│")
+    print(f"│  {'DIMENSION':12} {'WHAT IS CHARGED':32} {'RATE (INR)':28}│")
     print(f"│  {'─'*74}  │")
-    print(f"│  {'Storage':12} {'size × time × tier rate':32} {'HOT=₹'+str(RATES['HOT'])+' .../MB/s':28}│")
-    print(f"│  {'Requests':12} {'Class A writes / Class B reads':32} {'A=₹{:.6f} B=₹{:.6f} per 1K'.format(REQUEST_RATES.get('A',0)*1000, REQUEST_RATES.get('B',0)*1000):28}│")
-    print(f"│  {'Bandwidth':12} {'egress only (ingress=free)':32} {'₹{:.4f}/GB (₹{:.7f}/MB)'.format(BANDWIDTH_RATE_PER_MB*1024, BANDWIDTH_RATE_PER_MB):28}│")
+    # FIX: use actual converted INR values from RATES dict, not hardcoded strings
+    print(f"│  {'Storage':12} {'size × time × tier rate':32} {'HOT=₹{:.6f}/MB/s'.format(RATES['HOT']):28}│")
+    print(f"│  {'Requests':12} {'Class A writes / Class B reads':32} {'A=₹{:.4f} B=₹{:.4f} per 1K'.format(REQUEST_RATES.get('A',0)*1000, REQUEST_RATES.get('B',0)*1000):28}│")
+    print(f"│  {'Bandwidth':12} {'egress only (ingress=free)':32} {'₹{:.4f}/GB (IBMCOSx₹83.5)'.format(BANDWIDTH_RATE_PER_MB*1024):28}│")
     print(f"├{div}┤")
 
     grand_total = 0.0
@@ -340,7 +319,6 @@ def _print_dashboard(billing_summary: dict, now: datetime) -> None:
               f"{'Hours:'} {data['total_hours']:.4f}{'':>20}│")
         print(f"│  {'─'*74}  │")
 
-        # Dimension 1 — Storage breakdown by tier
         print(f"│  {'[1] STORAGE':<14} "
               f"HOT=₹{data['by_tier']['HOT']:.5f}  "
               f"COOL=₹{data['by_tier']['COOL']:.5f}  "
@@ -348,7 +326,6 @@ def _print_dashboard(billing_summary: dict, now: datetime) -> None:
               f"ARC=₹{data['by_tier']['ARCHIVE']:.5f}  │")
         print(f"│  {'':14} Storage subtotal: ₹{storage_cost:.7f}{'':>38}│")
 
-        # Dimension 2 — Request charges
         rc = data["req_counts"]
         print(f"│  {'[2] REQUESTS':<14} "
               f"A={rc.get('A',0)} writes  "
@@ -356,15 +333,13 @@ def _print_dashboard(billing_summary: dict, now: datetime) -> None:
               f"FREE={rc.get('FREE',0)} deletes  "
               f"Subtotal: ₹{request_cost:.7f}  │")
 
-        # Dimension 3 — Bandwidth charges
         print(f"│  {'[3] BANDWIDTH':<14} "
               f"Egress={data['egress_mb']:.4f} MB ({data['egress_ops']} downloads)  "
               f"Ingress={data['ingress_mb']:.4f} MB (FREE)  "
               f"Subtotal: ₹{bandwidth_cost:.7f}  │")
 
         print(f"│  {'─'*74}  │")
-        print(f"│  {'AMOUNT OWED':<14} "
-              f"₹{amount_owed:.7f}  "
+        print(f"│  {'AMOUNT OWED':<14} ₹{amount_owed:.7f}  "
               f"(storage + requests + bandwidth){'':>19}│")
         print(f"├{div}┤")
 
@@ -375,19 +350,27 @@ def _print_dashboard(billing_summary: dict, now: datetime) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main loop
+# Main loop — FIX: startup banner uses actual INR rates
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     print()
     print("=" * 78)
-    print("  STRATA v0.9.1 — IBM COS 3-Dimension Billing Engine")
+    print("  STRATA v0.9.1 — IBM COS 3-Dimension Billing Engine (INR)")
     print()
-    print("  Dimension 1 — Storage:   HOT=₹0.001  COOL=₹0.0004  "
-          "COLD=₹0.0002  ARCHIVE=₹0.00005  /MB/s")
-    print("  Dimension 2 — Requests:  Class A=₹0.005/1K  "
-          "Class B=₹0.0004/1K  DELETE=FREE")
-    print("  Dimension 3 — Bandwidth: Egress=₹0.0087/GB  Ingress=FREE")
+    # FIX: show actual converted INR values, not hardcoded USD strings
+    print(f"  Exchange rate: 1 USD = ₹{USD_TO_INR}")
+    print(f"  Dimension 1 — Storage:   "
+          f"HOT=₹{RATES['HOT']:.6f}  "
+          f"COOL=₹{RATES['COOL']:.6f}  "
+          f"COLD=₹{RATES['COLD']:.6f}  "
+          f"ARCHIVE=₹{RATES['ARCHIVE']:.6f}  /MB/s")
+    print(f"  Dimension 2 — Requests:  "
+          f"Class A=₹{REQUEST_RATES['A']*1000:.4f}/1K  "
+          f"Class B=₹{REQUEST_RATES['B']*1000:.4f}/1K  "
+          f"DELETE=FREE")
+    print(f"  Dimension 3 — Bandwidth: "
+          f"Egress=₹{BANDWIDTH_RATE_PER_MB*1024:.4f}/GB  Ingress=FREE")
     print()
     print(f"  Poll interval: {POLL_INTERVAL_SECS}s  |  Press Ctrl+C to stop.")
     print("=" * 78)
