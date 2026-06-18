@@ -16,6 +16,7 @@ import re
 import shutil
 import sqlite3
 import uuid
+import bcrypt
 from datetime import datetime
 from typing import Annotated
 
@@ -240,13 +241,28 @@ def login_submit(request: Request,
                  password: str = Form(...)):
     conn = get_conn()
     try:
+        # Fetch by username only — password is no longer compared in SQL
+        # since it's now stored as a bcrypt hash, not plain text.
         row = conn.execute(
-            "SELECT id, username, api_key FROM users WHERE username=? AND password=?",
-            (username, password),
+            "SELECT id, username, api_key, password FROM users WHERE username=?",
+            (username,),
         ).fetchone()
     finally:
         conn.close()
-    if row is None:
+
+    # Verify the submitted password against the stored bcrypt hash.
+    # bcrypt.checkpw() handles the salt internally — no need to store it separately.
+    valid = False
+    if row is not None:
+        try:
+            valid = bcrypt.checkpw(
+                password.encode("utf-8"), row["password"].encode("utf-8")
+            )
+        except (ValueError, AttributeError):
+            # Stored value isn't a valid bcrypt hash (e.g. pre-migration plain text)
+            valid = False
+
+    if not valid:
         return templates.TemplateResponse(
             request=request, name="login.html",
             context={"error": "Invalid username or password."},
