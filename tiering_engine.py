@@ -17,6 +17,12 @@ COOL_TO_COLD_SECS    = 300
 COLD_TO_ARCHIVE_SECS = 600
 POLL_INTERVAL_SECS   = 15
 
+# AWS S3 Intelligent-Tiering does not move objects smaller than 128KB into
+# infrequent-access tiers — the storage/retrieval overhead of tracking a
+# tiny object's tier status outweighs any cost savings. Files below this
+# size stay in HOT permanently, regardless of how long they've been idle.
+MIN_TIERING_SIZE_MB = 128 / 1024  # 128KB expressed in MB ≈ 0.125
+
 TIER_DIRS = {
     "HOT":     "storage/hot",
     "COOL":    "storage/cool",
@@ -93,6 +99,15 @@ def manage_storage_tiers():
                         f"{int(elapsed)}s idle, {from_tier}→{to_tier} in ~{remaining}s")
                     continue
 
+                # ── Size-based exemption (AWS S3 Intelligent-Tiering rule) ──
+                # Files under 128KB never tier down, no matter how long
+                # they've been idle. They stay in HOT permanently.
+                if size_mb < MIN_TIERING_SIZE_MB:
+                    log("info",
+                        f"  '{filename}' ({username}/{bucket_name}) — "
+                        f"{size_mb*1024:.1f}KB < 128KB minimum, exempt from tiering, staying {from_tier}")
+                    continue
+
                 # ── Move the file ──────────────────────────────────────────
                 src     = os.path.join(TIER_DIRS[from_tier], username, bucket_name, filename)
                 dst_dir = os.path.join(TIER_DIRS[to_tier],   username, bucket_name)
@@ -158,6 +173,8 @@ def main():
     print(f"  HOT→COOL: {HOT_TO_COOL_SECS}s  |  "
           f"COOL→COLD: {COOL_TO_COLD_SECS}s  |  "
           f"COLD→ARCHIVE: {COLD_TO_ARCHIVE_SECS}s")
+    print(f"  Size exemption: files < {MIN_TIERING_SIZE_MB*1024:.0f}KB never tier "
+          f"(AWS S3 Intelligent-Tiering rule)")
     print(f"  Path: storage/{{tier}}/{{username}}/{{bucket}}/{{filename}}")
     print(f"  Poll interval: {POLL_INTERVAL_SECS}s  |  Press Ctrl+C to stop.")
     print("=" * 64)
