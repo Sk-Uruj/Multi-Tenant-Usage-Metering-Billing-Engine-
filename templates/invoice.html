@@ -8,113 +8,75 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --black:   #0a0a0a;
-      --white:   #f5f0e8;
-      --yellow:  #FFE000;
-      --hot:     #FF2D6B;
-      --cool:    #0057FF;
-      --cold:    #00FFD1;
-      --archive: #888888;
-      --green:   #00FF85;
-      --orange:  #FF6B00;
-      --panel:   #f0ead8;
-      --gap:     20px;
+      --black:#0a0a0a; --white:#f5f0e8; --yellow:#FFE000;
+      --hot:#FF2D6B; --cool:#0057FF; --cold:#00FFD1;
+      --archive:#888888; --green:#00FF85; --orange:#FF6B00;
+      --panel:#f0ead8; --gap:20px;
     }
-    body {
-      font-family: 'Space Mono', monospace;
-      background: var(--white);
-      background-image:
-        linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
-      background-size: 32px 32px;
-      color: var(--black);
-      min-height: 100vh;
-      padding: 24px;
-    }
-    .bebas  { font-family: 'Bebas Neue', sans-serif; }
-    .page   { max-width: 1100px; margin: 0 auto; }
-    .label  { font-size: .6rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .55; display: block; margin-bottom: 5px; }
-    .tag    { display: inline-block; background: var(--black); color: var(--yellow); font-size: .6rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; padding: 3px 10px; }
-
-    /* Cards */
-    .card       { background: var(--panel); border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); }
-    .card-inset { background: var(--white); border: 2px solid var(--black); }
-    .card-dark  { background: var(--black); border: 3px solid var(--black); box-shadow: 6px 6px 0 rgba(255,224,0,.2); }
-
-    /* Badges */
-    .badge         { display: inline-block; border: 2px solid var(--black); font-size: .6rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; }
-    .badge-hot     { background: var(--hot);     color: #fff; }
-    .badge-cool    { background: var(--cool);    color: #fff; }
-    .badge-cold    { background: var(--cold);    color: #000; }
-    .badge-archive { background: var(--archive); color: #fff; }
-    .badge-green   { background: var(--green);   color: #000; }
-    .badge-paid    { background: var(--green);   color: #000; font-size: .75rem; padding: 4px 14px; }
-    .badge-due     { background: var(--hot);     color: #fff; font-size: .75rem; padding: 4px 14px; }
-
-    /* Buttons */
-    .btn { display: inline-block; border: 3px solid var(--black); box-shadow: 4px 4px 0 var(--black); font-family: 'Space Mono', monospace; font-weight: 700; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; padding: 10px 18px; cursor: pointer; transition: transform .07s, box-shadow .07s; text-decoration: none; text-align: center; background: none; }
-    .btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--black); }
-    .btn:active { transform: translate(4px,4px); box-shadow: 0 0 0 var(--black); }
-    .btn-yellow { background: var(--yellow); color: var(--black); }
-    .btn-black  { background: var(--black);  color: var(--yellow); }
-    .btn-sm     { font-size: .65rem; padding: 6px 14px; box-shadow: 2px 2px 0 var(--black); }
-
-    /* Table */
-    table { border-collapse: collapse; width: 100%; }
-    thead tr { background: var(--black); }
-    th { color: var(--yellow); font-size: .6rem; letter-spacing: .18em; text-transform: uppercase; padding: 11px 14px; text-align: left; white-space: nowrap; }
-    td { padding: 11px 14px; font-size: .78rem; border-bottom: 2px solid var(--black); vertical-align: middle; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: rgba(0,0,0,.04); }
-    .text-right { text-align: right; }
-    .total-row td { background: var(--black) !important; color: var(--yellow); font-weight: 700; }
-
-    /* Layout */
-    .header { display: grid; grid-template-columns: 1fr auto; gap: 0; border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--black); margin-bottom: var(--gap); overflow: hidden; }
-    .header-left  { background: var(--black); padding: 28px 32px; }
-    .header-right { background: var(--yellow); border-left: 3px solid var(--black); padding: 24px 28px; min-width: 240px; display: flex; flex-direction: column; justify-content: space-between; }
-
-    .invoice-meta { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-bottom: var(--gap); }
-    .meta-card { padding: 20px; }
-
-    .summary-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--gap); margin-bottom: var(--gap); }
-    .summary-cell  { padding: 16px 18px; border: 3px solid var(--black); box-shadow: 4px 4px 0 var(--black); }
-    .summary-num   { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; line-height: 1; margin-top: 4px; }
-
-    /* Tier cost bar */
-    .tier-bar-wrap { margin: 8px 0 4px; height: 16px; display: flex; border: 2px solid var(--black); overflow: hidden; }
-    .tier-bar-seg  { height: 100%; transition: width .4s ease; }
-
-    /* File breakdown accordion */
-    .file-row-detail { display: none; background: #faf7ee; }
-    .file-row-detail td { padding: 0; }
-    .detail-inner { padding: 12px 16px 12px 36px; }
-    .tier-window-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-size: .72rem; border-bottom: 1px solid rgba(0,0,0,.08); }
-    .tier-window-row:last-child { border-bottom: none; }
-
-    /* Rate card */
-    .rate-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
-    .rate-cell { padding: 14px 16px; border: 3px solid var(--black); box-shadow: 3px 3px 0 var(--black); }
-
-    /* Print styles */
+    body { font-family:'Space Mono',monospace; background:var(--white);
+      background-image:linear-gradient(rgba(0,0,0,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.04) 1px,transparent 1px);
+      background-size:32px 32px; color:var(--black); min-height:100vh; padding:24px; }
+    .bebas { font-family:'Bebas Neue',sans-serif; }
+    .page  { max-width:1100px; margin:0 auto; }
+    .label { font-size:.6rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; opacity:.55; display:block; margin-bottom:5px; }
+    .tag   { display:inline-block; background:var(--black); color:var(--yellow); font-size:.6rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; padding:3px 10px; }
+    .card       { background:var(--panel); border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); }
+    .card-inset { background:var(--white); border:2px solid var(--black); }
+    .card-dark  { background:var(--black); border:3px solid var(--black); box-shadow:6px 6px 0 rgba(255,224,0,.2); }
+    .badge         { display:inline-block; border:2px solid var(--black); font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; }
+    .badge-hot     { background:var(--hot);     color:#fff; }
+    .badge-cool    { background:var(--cool);    color:#fff; }
+    .badge-cold    { background:var(--cold);    color:#000; }
+    .badge-archive { background:var(--archive); color:#fff; }
+    .badge-green   { background:var(--green);   color:#000; }
+    .badge-paid    { background:var(--green);   color:#000; font-size:.75rem; padding:4px 14px; }
+    .badge-due     { background:var(--hot);     color:#fff; font-size:.75rem; padding:4px 14px; }
+    .btn { display:inline-block; border:3px solid var(--black); box-shadow:4px 4px 0 var(--black); font-family:'Space Mono',monospace; font-weight:700; font-size:.78rem; letter-spacing:.06em; text-transform:uppercase; padding:10px 18px; cursor:pointer; transition:transform .07s,box-shadow .07s; text-decoration:none; text-align:center; background:none; }
+    .btn:hover  { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--black); }
+    .btn:active { transform:translate(4px,4px); box-shadow:0 0 0 var(--black); }
+    .btn-yellow { background:var(--yellow); color:var(--black); }
+    .btn-black  { background:var(--black);  color:var(--yellow); }
+    .btn-sm     { font-size:.65rem; padding:6px 14px; box-shadow:2px 2px 0 var(--black); }
+    table { border-collapse:collapse; width:100%; }
+    thead tr { background:var(--black); }
+    th { color:var(--yellow); font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; padding:11px 14px; text-align:left; white-space:nowrap; }
+    td { padding:11px 14px; font-size:.78rem; border-bottom:2px solid var(--black); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:rgba(0,0,0,.04); }
+    .text-right { text-align:right; }
+    .total-row td { background:var(--black) !important; color:var(--yellow); font-weight:700; }
+    .header { display:grid; grid-template-columns:1fr auto; border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); margin-bottom:var(--gap); overflow:hidden; }
+    .header-left  { background:var(--black); padding:28px 32px; }
+    .header-right { background:var(--yellow); border-left:3px solid var(--black); padding:24px 28px; min-width:240px; display:flex; flex-direction:column; justify-content:space-between; }
+    .invoice-meta  { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); margin-bottom:var(--gap); }
+    .summary-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+    .summary-cell  { padding:16px 18px; border:3px solid var(--black); box-shadow:4px 4px 0 var(--black); }
+    .summary-num   { font-family:'Bebas Neue',sans-serif; font-size:2.2rem; line-height:1; margin-top:4px; }
+    .tier-bar-wrap { margin:8px 0 4px; height:16px; display:flex; border:2px solid var(--black); overflow:hidden; }
+    .tier-bar-seg  { height:100%; transition:width .4s ease; }
+    .file-row-detail { display:none; background:#faf7ee; }
+    .file-row-detail td { padding:0; }
+    .detail-inner { padding:12px 16px 12px 36px; }
+    .tier-window-row { display:flex; align-items:center; gap:12px; padding:5px 0; font-size:.72rem; border-bottom:1px solid rgba(0,0,0,.08); }
+    .tier-window-row:last-child { border-bottom:none; }
+    .rate-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .rate-cell { padding:14px 16px; border:3px solid var(--black); box-shadow:3px 3px 0 var(--black); }
     @media print {
-      body { background: white; padding: 0; }
-      .no-print { display: none !important; }
-      .card, .card-inset, .card-dark, .summary-cell, .rate-cell { box-shadow: none !important; }
+      body { background:white; padding:0; }
+      .no-print { display:none !important; }
+      .card,.card-inset,.card-dark,.summary-cell,.rate-cell { box-shadow:none !important; }
     }
-
-    footer { display: flex; align-items: center; justify-content: space-between; font-size: .62rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; opacity: .28; margin-top: 16px; }
-    footer a { color: var(--black); text-decoration: underline; }
-
-    ::-webkit-scrollbar { width: 7px; height: 7px; }
-    ::-webkit-scrollbar-track { background: var(--white); }
-    ::-webkit-scrollbar-thumb { background: var(--black); }
+    footer { display:flex; align-items:center; justify-content:space-between; font-size:.62rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; opacity:.28; margin-top:16px; }
+    footer a { color:var(--black); text-decoration:underline; }
+    ::-webkit-scrollbar { width:7px; height:7px; }
+    ::-webkit-scrollbar-track { background:var(--white); }
+    ::-webkit-scrollbar-thumb { background:var(--black); }
   </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- ══════════════════════════ INVOICE HEADER -->
+  <!-- INVOICE HEADER -->
   <div class="header">
     <div class="header-left">
       <div style="display:flex;align-items:baseline;gap:16px;">
@@ -124,9 +86,7 @@
       <div style="font-size:.6rem;letter-spacing:.25em;color:#555;margin-top:4px;">MULTI-TENANT CLOUD STORAGE ENGINE // USAGE-BASED BILLING</div>
       <div style="margin-top:18px;">
         <div style="font-size:.62rem;color:#777;letter-spacing:.1em;">INVOICE NUMBER</div>
-        <div class="bebas" style="font-size:1.4rem;color:var(--yellow);letter-spacing:.08em;">
-          INV-{{ user.id }}-{{ now_ts }}
-        </div>
+        <div class="bebas" style="font-size:1.4rem;color:var(--yellow);letter-spacing:.08em;">INV-{{ user.id }}-{{ now_ts }}</div>
       </div>
     </div>
     <div class="header-right">
@@ -143,26 +103,22 @@
       </div>
       <div style="margin-top:16px;">
         <span class="badge-due">{% if balance_due <= 0 %}✓ PAID{% else %}AMOUNT DUE{% endif %}</span>
-        <div class="bebas" style="font-size:2.6rem;line-height:1;margin-top:6px;
-          color:{% if balance_due <= 0 %}#00FF85{% else %}var(--hot){% endif %};">
+        <div class="bebas" style="font-size:2.6rem;line-height:1;margin-top:6px;color:{% if balance_due <= 0 %}#00FF85{% else %}var(--hot){% endif %};">
           ₹{{ "%.7f"|format(balance_due) }}
         </div>
         <div style="font-size:.6rem;opacity:.5;margin-top:4px;">
-          {% if balance_due <= 0 %}
-            fully settled · total charged ₹{{ "%.6f"|format(grand_total) }}
-          {% else %}
-            storage + requests + bandwidth
-          {% endif %}
+          {% if balance_due <= 0 %}fully settled · total charged ₹{{ "%.6f"|format(grand_total) }}
+          {% else %}storage + requests + bandwidth{% endif %}
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════ SUMMARY STRIP -->
+  <!-- SUMMARY STRIP -->
   <div class="summary-strip">
     <div class="summary-cell" style="background:var(--black);color:var(--yellow);">
       <span class="label" style="color:var(--yellow);opacity:.6;">TOTAL FILES</span>
-      <div class="summary-num">{{ files | length }}</div>
+      <div class="summary-num">{{ files|length }}</div>
     </div>
     <div class="summary-cell" style="background:var(--panel);">
       <span class="label">STORAGE USED</span>
@@ -178,9 +134,8 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════ INVOICE META -->
+  <!-- INVOICE META -->
   <div class="invoice-meta">
-
     <!-- Rate Card -->
     <div class="card" style="padding:20px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
@@ -211,8 +166,7 @@
       </div>
       <div style="margin-top:14px;padding:10px 14px;background:var(--white);border:2px solid var(--black);font-size:.68rem;line-height:1.7;opacity:.7;">
         Charges accrue per second based on file size and current storage tier.
-        Files accessed are automatically promoted to HOT and billed at HOT rate
-        from that point forward.
+        Files accessed are automatically promoted to HOT and billed at HOT rate from that point forward.
       </div>
     </div>
 
@@ -222,17 +176,12 @@
         <span class="tag">COST BY TIER</span>
         <span style="font-size:.62rem;opacity:.4;">aggregated across all your files</span>
       </div>
-
       {% set total_cost = billing.amount_owed if billing else 0 %}
-
       {% for tier, style_color, text_color, rate in [
-          ('HOT',     '#FF2D6B', '#fff',  0.001000),
-          ('COOL',    '#0057FF', '#fff',  0.000400),
-          ('COLD',    '#00FFD1', '#000',  0.000200),
-          ('ARCHIVE', '#888',    '#fff',  0.000050),
-      ] %}
+          ('HOT','#FF2D6B','#fff',0.001000),('COOL','#0057FF','#fff',0.000400),
+          ('COLD','#00FFD1','#000',0.000200),('ARCHIVE','#888','#fff',0.000050)] %}
       {% set tier_cost = tier_costs.get(tier, 0) %}
-      {% set pct = ((tier_cost / total_cost * 100) if total_cost > 0 else 0) | round(1) %}
+      {% set pct = ((tier_cost / total_cost * 100) if total_cost > 0 else 0)|round(1) %}
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -241,7 +190,6 @@
           </div>
           <div style="font-weight:700;font-size:.85rem;">₹{{ "%.7f"|format(tier_cost) }}</div>
         </div>
-        <!-- Progress bar -->
         <div style="height:12px;background:#e0dac8;border:2px solid var(--black);overflow:hidden;">
           <div style="height:100%;width:{{ pct }}%;background:{{ style_color }};transition:width .5s ease;"></div>
         </div>
@@ -251,16 +199,14 @@
         </div>
       </div>
       {% endfor %}
-
       <div style="border-top:3px solid var(--black);padding-top:14px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-weight:700;letter-spacing:.05em;font-size:.85rem;">TOTAL ACCRUED</div>
         <div class="bebas" style="font-size:1.8rem;color:var(--hot);">₹{{ "%.7f"|format(total_cost) }}</div>
       </div>
     </div>
-
   </div>
 
-  <!-- ══════════════════════════ REQUEST CHARGES -->
+  <!-- REQUEST CHARGES -->
   <div class="card" style="margin-bottom:var(--gap);overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:3px solid var(--black);">
       <div style="display:flex;align-items:center;gap:12px;">
@@ -270,16 +216,13 @@
       <span class="bebas" style="font-size:1.4rem;color:var(--hot);">₹{{ "%.7f"|format(total_req_cost) }}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;">
-
-      <!-- Class A -->
       <div style="padding:20px 24px;border-right:2px solid var(--black);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="badge badge-hot">CLASS A</span>
           <span style="font-size:.65rem;opacity:.5;">WRITE OPERATIONS</span>
         </div>
         <div style="font-size:.7rem;opacity:.6;line-height:1.8;margin-bottom:14px;">
-          POST /upload<br/>
-          Charged per file ingestion.<br/>
+          POST /upload<br/>Charged per file ingestion.<br/>
           Rate: <strong style="opacity:1;">₹{{ '%.6f'|format(req_rates['A'] * 1000) }} / 1,000 requests</strong>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;background:var(--white);border:2px solid var(--black);">
@@ -287,16 +230,13 @@
           <span class="bebas" style="font-size:1.6rem;color:var(--hot);">₹{{ "%.7f"|format(class_a_cost) }}</span>
         </div>
       </div>
-
-      <!-- Class B -->
       <div style="padding:20px 24px;border-right:2px solid var(--black);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="badge badge-cool">CLASS B</span>
           <span style="font-size:.65rem;opacity:.5;">READ OPERATIONS</span>
         </div>
         <div style="font-size:.7rem;opacity:.6;line-height:1.8;margin-bottom:14px;">
-          GET /files<br/>
-          GET /files/{filename}<br/>
+          GET /files<br/>GET /files/{filename}<br/>
           Rate: <strong style="opacity:1;">₹{{ '%.6f'|format(req_rates['B'] * 1000) }} / 1,000 requests</strong>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;background:var(--white);border:2px solid var(--black);">
@@ -304,16 +244,13 @@
           <span class="bebas" style="font-size:1.6rem;color:var(--cool);">₹{{ "%.7f"|format(class_b_cost) }}</span>
         </div>
       </div>
-
-      <!-- Free -->
       <div style="padding:20px 24px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="badge badge-green">FREE</span>
           <span style="font-size:.65rem;opacity:.5;">DELETE OPERATIONS</span>
         </div>
         <div style="font-size:.7rem;opacity:.6;line-height:1.8;margin-bottom:14px;">
-          DELETE /files/{filename}<br/>
-          No charge for deletions.<br/>
+          DELETE /files/{filename}<br/>No charge for deletions.<br/>
           Rate: <strong style="opacity:1;">₹0.000 (free)</strong>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;background:var(--white);border:2px solid var(--black);">
@@ -322,47 +259,26 @@
         </div>
       </div>
     </div>
-
-    <!-- Recent request log -->
     {% if recent_reqs %}
     <div style="border-top:3px solid var(--black);">
-      <div style="padding:10px 20px;font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.45;background:var(--panel);">
-        RECENT API CALL LOG (LAST 20)
-      </div>
+      <div style="padding:10px 20px;font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.45;background:var(--panel);">RECENT API CALL LOG (LAST 20)</div>
       <div style="overflow-x:auto;">
         <table>
-          <thead>
-            <tr>
-              <th>METHOD</th>
-              <th>ENDPOINT</th>
-              <th>CLASS</th>
-              <th>UNIT COST</th>
-              <th>TIMESTAMP</th>
-            </tr>
-          </thead>
+          <thead><tr><th>METHOD</th><th>ENDPOINT</th><th>CLASS</th><th>UNIT COST</th><th>TIMESTAMP</th></tr></thead>
           <tbody>
             {% for r in recent_reqs %}
             <tr>
-              <td>
-                <span class="badge {% if r.method == 'POST' %}badge-hot{% elif r.method == 'GET' %}badge-cool{% else %}badge-archive{% endif %}" style="font-size:.58rem;">
-                  {{ r.method }}
-                </span>
-              </td>
+              <td><span class="badge {% if r.method == 'POST' %}badge-hot{% elif r.method == 'GET' %}badge-cool{% else %}badge-archive{% endif %}" style="font-size:.58rem;">{{ r.method }}</span></td>
               <td style="font-size:.72rem;font-weight:700;">{{ r.endpoint }}</td>
               <td>
-                {% if r.op_class == 'A' %}
-                  <span class="badge badge-hot" style="font-size:.58rem;">CLASS A</span>
-                {% elif r.op_class == 'B' %}
-                  <span class="badge badge-cool" style="font-size:.58rem;">CLASS B</span>
-                {% else %}
-                  <span class="badge badge-green" style="font-size:.58rem;">FREE</span>
-                {% endif %}
+                {% if r.op_class == 'A' %}<span class="badge badge-hot" style="font-size:.58rem;">CLASS A</span>
+                {% elif r.op_class == 'B' %}<span class="badge badge-cool" style="font-size:.58rem;">CLASS B</span>
+                {% else %}<span class="badge badge-green" style="font-size:.58rem;">FREE</span>{% endif %}
               </td>
               <td style="font-size:.72rem;">
                 {% if r.op_class == 'A' %}₹{{ '%.6f'|format(req_rates['A']) }}
                 {% elif r.op_class == 'B' %}₹{{ '%.6f'|format(req_rates['B']) }}
-                {% else %}₹0.000000
-                {% endif %}
+                {% else %}₹0.000000{% endif %}
               </td>
               <td style="font-size:.68rem;opacity:.55;">{{ r.occurred_at[:19] }}</td>
             </tr>
@@ -374,7 +290,7 @@
     {% endif %}
   </div>
 
-  <!-- ══════════════════════════ BANDWIDTH CHARGES -->
+  <!-- BANDWIDTH CHARGES -->
   <div class="card" style="margin-bottom:var(--gap);overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:3px solid var(--black);">
       <div style="display:flex;align-items:center;gap:12px;">
@@ -383,19 +299,14 @@
       </div>
       <span class="bebas" style="font-size:1.4rem;color:var(--orange);">₹{{ "%.7f"|format(total_bw_cost) }}</span>
     </div>
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-
-      <!-- Egress — billed -->
       <div style="padding:20px 24px;border-right:2px solid var(--black);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="badge" style="background:var(--orange);color:#fff;">EGRESS</span>
           <span style="font-size:.65rem;opacity:.5;">OUTBOUND — BILLED</span>
         </div>
         <div style="font-size:.7rem;opacity:.6;line-height:1.8;margin-bottom:14px;">
-          Data downloaded by the user.<br/>
-          Every GET /files/{bucket}/{filename} call<br/>
-          transfers the full file size out.<br/>
+          Data downloaded by the user.<br/>Every GET /files/{bucket}/{filename} call transfers the full file size out.<br/>
           Rate: <strong style="opacity:1;">₹{{ '%.4f'|format(bw_rate_per_mb * 1024) }} / GB (₹{{ "%.7f"|format(bw_rate_per_mb) }}/MB)</strong><br/>
           <span style="font-size:.65rem;opacity:.5;">Source: IBM Cloud Object Storage pricing</span>
         </div>
@@ -407,17 +318,13 @@
           <span class="bebas" style="font-size:1.8rem;color:var(--orange);">₹{{ "%.7f"|format(egress_cost) }}</span>
         </div>
       </div>
-
-      <!-- Ingress — free -->
       <div style="padding:20px 24px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="badge badge-green">INGRESS</span>
           <span style="font-size:.65rem;opacity:.5;">INBOUND — FREE</span>
         </div>
         <div style="font-size:.7rem;opacity:.6;line-height:1.8;margin-bottom:14px;">
-          Data uploaded by the user.<br/>
-          Every POST /upload call transfers<br/>
-          the file size inbound.<br/>
+          Data uploaded by the user.<br/>Every POST /upload call transfers the file size inbound.<br/>
           Rate: <strong style="opacity:1;">₹0.000 (always free)</strong><br/>
           <span style="font-size:.65rem;opacity:.5;">Matches AWS S3, Azure Blob, IBM COS policy</span>
         </div>
@@ -430,46 +337,26 @@
         </div>
       </div>
     </div>
-
-    <!-- Per-file bandwidth log -->
     {% if recent_bw %}
     <div style="border-top:3px solid var(--black);">
-      <div style="padding:10px 20px;font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.45;background:var(--panel);">
-        RECENT TRANSFER LOG (LAST 20)
-      </div>
+      <div style="padding:10px 20px;font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.45;background:var(--panel);">RECENT TRANSFER LOG (LAST 20)</div>
       <div style="overflow-x:auto;">
         <table>
-          <thead>
-            <tr>
-              <th>BUCKET</th>
-              <th>FILENAME</th>
-              <th>DIRECTION</th>
-              <th>SIZE (MB)</th>
-              <th>BYTES</th>
-              <th>CHARGE</th>
-              <th>TIMESTAMP</th>
-            </tr>
-          </thead>
+          <thead><tr><th>BUCKET</th><th>FILENAME</th><th>DIRECTION</th><th>SIZE (MB)</th><th>BYTES</th><th>CHARGE</th><th>TIMESTAMP</th></tr></thead>
           <tbody>
             {% for r in recent_bw %}
             <tr>
               <td><span class="badge badge-orange" style="font-size:.55rem;">{{ r.bucket_name }}</span></td>
               <td style="font-weight:700;font-size:.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.filename }}</td>
               <td>
-                {% if r.direction == 'egress' %}
-                <span class="badge" style="background:var(--orange);color:#fff;font-size:.58rem;">⬇ EGRESS</span>
-                {% else %}
-                <span class="badge badge-green" style="font-size:.58rem;">⬆ INGRESS</span>
-                {% endif %}
+                {% if r.direction == 'egress' %}<span class="badge" style="background:var(--orange);color:#fff;font-size:.58rem;">⬇ EGRESS</span>
+                {% else %}<span class="badge badge-green" style="font-size:.58rem;">⬆ INGRESS</span>{% endif %}
               </td>
               <td style="font-size:.72rem;font-weight:700;">{{ "%.4f"|format(r.mb_transferred) }}</td>
               <td style="font-size:.68rem;opacity:.55;">{{ r.bytes_transferred }}</td>
               <td style="font-size:.72rem;font-weight:700;">
-                {% if r.direction == 'egress' %}
-                <span style="color:var(--orange);">₹{{ "%.7f"|format(r.mb_transferred * bw_rate_per_mb) }}</span>
-                {% else %}
-                <span style="color:#888;">FREE</span>
-                {% endif %}
+                {% if r.direction == 'egress' %}<span style="color:var(--orange);">₹{{ "%.7f"|format(r.mb_transferred * bw_rate_per_mb) }}</span>
+                {% else %}<span style="color:#888;">FREE</span>{% endif %}
               </td>
               <td style="font-size:.68rem;opacity:.55;">{{ r.occurred_at[:19] }}</td>
             </tr>
@@ -481,7 +368,7 @@
     {% endif %}
   </div>
 
-  <!-- ══════════════════════════ GRAND TOTAL (3 dimensions) -->
+  <!-- GRAND TOTAL (3 dimensions) -->
   <div class="card" style="margin-bottom:var(--gap);overflow:hidden;">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-bottom:3px solid var(--black);">
       <div style="padding:18px 20px;border-right:2px solid var(--black);">
@@ -500,49 +387,35 @@
         <div style="font-size:.6rem;opacity:.5;margin-top:3px;">{{ egress_mb }} MB egress × ₹{{ '%.4f'|format(bw_rate_per_mb * 1024) }}/GB</div>
       </div>
       <div style="padding:18px 20px;background:var(--black);">
-        <span class="label" style="color:var(--yellow);opacity:.7;">
-          {% if balance_due <= 0 %}ACCOUNT SETTLED{% else %}BALANCE DUE{% endif %}
-        </span>
-        <div class="bebas" style="font-size:2.4rem;line-height:1;
-          color:{% if balance_due <= 0 %}#00FF85{% else %}var(--yellow){% endif %};">
-          ₹{{ "%.6f"|format(balance_due) }}
-          {% if balance_due <= 0 %} ✓{% endif %}
+        <span class="label" style="color:var(--yellow);opacity:.7;">{% if balance_due <= 0 %}ACCOUNT SETTLED{% else %}BALANCE DUE{% endif %}</span>
+        <div class="bebas" style="font-size:2.4rem;line-height:1;color:{% if balance_due <= 0 %}#00FF85{% else %}var(--yellow){% endif %};">
+          ₹{{ "%.6f"|format(balance_due) }}{% if balance_due <= 0 %} ✓{% endif %}
         </div>
         <div style="font-size:.6rem;color:#888;margin-top:3px;">
-          {% if balance_due <= 0 %}
-            {{ payment_count }} payment(s) · ₹{{ "%.6f"|format(payments_made) }} paid
-          {% else %}
-            total charges − payments made
-          {% endif %}
+          {% if balance_due <= 0 %}{{ payment_count }} payment(s) · ₹{{ "%.6f"|format(payments_made) }} paid
+          {% else %}total charges − payments made{% endif %}
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════ PER-FILE BREAKDOWN TABLE -->
+  <!-- PER-FILE BREAKDOWN TABLE -->
   <div class="card" style="margin-bottom:var(--gap);overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:3px solid var(--black);">
       <div style="display:flex;align-items:center;gap:12px;">
         <span class="tag">LINE ITEMS</span>
-        <span style="font-size:.62rem;opacity:.4;">click a row to expand tier breakdown</span>
+        <span style="font-size:.62rem;opacity:.4;">click a row to expand tier breakdown + metadata</span>
       </div>
       <span style="font-size:.65rem;opacity:.35;font-weight:700;">{{ files|length }} OBJECTS</span>
     </div>
-
     <div style="overflow-x:auto;">
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>OBJECT NAME</th>
-            <th>SIZE (MB)</th>
-            <th>CURRENT TIER</th>
-            <th>UPLOADED</th>
-            <th>DURATION</th>
-            <th style="text-align:right;">HOT (₹)</th>
-            <th style="text-align:right;">COOL (₹)</th>
-            <th style="text-align:right;">COLD (₹)</th>
-            <th style="text-align:right;">ARCHIVE (₹)</th>
+            <th>#</th><th>OBJECT NAME</th><th>SIZE (MB)</th><th>CURRENT TIER</th>
+            <th>UPLOADED</th><th>DURATION</th>
+            <th style="text-align:right;">HOT (₹)</th><th style="text-align:right;">COOL (₹)</th>
+            <th style="text-align:right;">COLD (₹)</th><th style="text-align:right;">ARCHIVE (₹)</th>
             <th style="text-align:right;">TOTAL (₹)</th>
           </tr>
         </thead>
@@ -555,23 +428,13 @@
               {{ f.filename }}
             </td>
             <td>{{ "%.4f"|format(f.file_size_mb) }}</td>
-            <td>
-              <span class="badge badge-{{ f.storage_tier|lower }}">{{ f.storage_tier }}</span>
-            </td>
+            <td><span class="badge badge-{{ f.storage_tier|lower }}">{{ f.storage_tier }}</span></td>
             <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.created_at[:16] }}</td>
             <td style="font-size:.72rem;">{{ fc.duration_str }}</td>
-            <td class="text-right" style="font-size:.72rem;color:{% if fc.hot > 0 %}var(--hot){% else %}#aaa{% endif %}">
-              {{ "%.6f"|format(fc.hot) }}
-            </td>
-            <td class="text-right" style="font-size:.72rem;color:{% if fc.cool > 0 %}var(--cool){% else %}#aaa{% endif %}">
-              {{ "%.6f"|format(fc.cool) }}
-            </td>
-            <td class="text-right" style="font-size:.72rem;color:{% if fc.cold > 0 %}#009988{% else %}#aaa{% endif %}">
-              {{ "%.6f"|format(fc.cold) }}
-            </td>
-            <td class="text-right" style="font-size:.72rem;color:{% if fc.archive > 0 %}#888{% else %}#aaa{% endif %}">
-              {{ "%.6f"|format(fc.archive) }}
-            </td>
+            <td class="text-right" style="font-size:.72rem;color:{% if fc.hot > 0 %}var(--hot){% else %}#aaa{% endif %}">{{ "%.6f"|format(fc.hot) }}</td>
+            <td class="text-right" style="font-size:.72rem;color:{% if fc.cool > 0 %}var(--cool){% else %}#aaa{% endif %}">{{ "%.6f"|format(fc.cool) }}</td>
+            <td class="text-right" style="font-size:.72rem;color:{% if fc.cold > 0 %}#009988{% else %}#aaa{% endif %}">{{ "%.6f"|format(fc.cold) }}</td>
+            <td class="text-right" style="font-size:.72rem;color:{% if fc.archive > 0 %}#888{% else %}#aaa{% endif %}">{{ "%.6f"|format(fc.archive) }}</td>
             <td class="text-right" style="font-weight:700;font-size:.8rem;">₹{{ "%.6f"|format(fc.total) }}</td>
           </tr>
           <!-- Expandable detail row -->
@@ -584,12 +447,10 @@
                   <span class="badge badge-{{ window.tier|lower }}" style="font-size:.58rem;min-width:64px;text-align:center;">{{ window.tier }}</span>
                   <span style="opacity:.5;font-size:.68rem;">{{ window.from_str }} → {{ window.to_str }}</span>
                   <span style="font-weight:700;font-size:.72rem;">{{ window.duration_str }}</span>
-                  <span style="margin-left:auto;font-weight:700;font-size:.75rem;">
-                    ₹{{ "%.7f"|format(window.cost) }}
-                  </span>
+                  <span style="margin-left:auto;font-weight:700;font-size:.75rem;">₹{{ "%.7f"|format(window.cost) }}</span>
                 </div>
                 {% endfor %}
-                <!-- Mini tier bar -->
+                <!-- Cost distribution bar -->
                 <div style="margin-top:10px;">
                   <div style="font-size:.6rem;opacity:.4;margin-bottom:4px;">COST DISTRIBUTION</div>
                   <div class="tier-bar-wrap">
@@ -598,6 +459,25 @@
                     <div class="tier-bar-seg" style="width:{{ (fc.cool/fc.total*100)|round(1) }}%;background:var(--cool);"></div>
                     <div class="tier-bar-seg" style="width:{{ (fc.cold/fc.total*100)|round(1) }}%;background:var(--cold);"></div>
                     <div class="tier-bar-seg" style="width:{{ (fc.archive/fc.total*100)|round(1) }}%;background:var(--archive);"></div>
+                    {% endif %}
+                  </div>
+                </div>
+                <!-- ══ Object metadata — ETag + Content-Type (IBM COS / AWS S3 convention) ══ -->
+                <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,.1);display:flex;gap:32px;flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:.55rem;font-weight:700;letter-spacing:.15em;opacity:.4;margin-bottom:4px;">CONTENT-TYPE</div>
+                    {% if f.content_type %}
+                    <div style="font-size:.72rem;font-weight:700;">{{ f.content_type }}</div>
+                    {% else %}
+                    <div style="font-size:.68rem;opacity:.3;">— run add_object_metadata.py to backfill</div>
+                    {% endif %}
+                  </div>
+                  <div>
+                    <div style="font-size:.55rem;font-weight:700;letter-spacing:.15em;opacity:.4;margin-bottom:4px;">ETAG (MD5)</div>
+                    {% if f.etag %}
+                    <div style="font-size:.68rem;font-family:'Courier New',monospace;letter-spacing:.04em;word-break:break-all;">{{ f.etag }}</div>
+                    {% else %}
+                    <div style="font-size:.68rem;opacity:.3;">—</div>
                     {% endif %}
                   </div>
                 </div>
@@ -621,17 +501,14 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════ BILLING NOTES -->
+  <!-- BILLING NOTES -->
   <div class="card" style="padding:20px;margin-bottom:var(--gap);">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <span class="tag">BILLING NOTES</span>
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span class="tag">BILLING NOTES</span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:.72rem;line-height:1.8;opacity:.7;">
       <div>
         <strong style="opacity:1;">How charges accrue:</strong><br/>
-        Storage is billed per megabyte per second based on the tier the file
-        currently occupies. When a file is accessed (downloaded), it is promoted
-        back to HOT and billed at the HOT rate from that point forward.
+        Storage is billed per megabyte per second based on the tier the file currently occupies.
+        When a file is accessed (downloaded), it is promoted back to HOT and billed at the HOT rate from that point forward.
         Charges are recalculated every 10 seconds by the billing engine.
       </div>
       <div>
@@ -640,13 +517,13 @@
         COOL → COLD after 5 min inactivity<br/>
         COLD → ARCHIVE after 10 min inactivity<br/>
         Any tier → HOT immediately on access<br/>
-        <br/>
-        Thresholds are configurable in <code>tiering_engine.py</code>.
+        Files under 128KB are exempt from tiering (AWS S3 Intelligent-Tiering rule).<br/>
+        Thresholds configurable in <code>tiering_engine.py</code>.
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════ PAYMENT SECTION -->
+  <!-- PAYMENT SECTION -->
   <div class="card" style="margin-bottom:var(--gap);overflow:hidden;" id="paymentSection">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:3px solid var(--black);">
       <div style="display:flex;align-items:center;gap:12px;">
@@ -656,19 +533,13 @@
       {% if balance_due <= 0 %}
       <span class="bebas" style="font-size:1.4rem;color:#065F46;">✓ ACCOUNT SETTLED</span>
       {% else %}
-      <span class="bebas" style="font-size:1.4rem;color:var(--hot);">
-        BALANCE DUE: ₹{{ "%.6f"|format(balance_due) }}
-      </span>
+      <span class="bebas" style="font-size:1.4rem;color:var(--hot);">BALANCE DUE: ₹{{ "%.6f"|format(balance_due) }}</span>
       {% endif %}
     </div>
     <div style="padding:24px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
-
-        <!-- Payment summary -->
         <div>
-          <div style="font-size:.65rem;font-weight:700;letter-spacing:.15em;opacity:.5;margin-bottom:12px;">
-            ACCOUNT SUMMARY
-          </div>
+          <div style="font-size:.65rem;font-weight:700;letter-spacing:.15em;opacity:.5;margin-bottom:12px;">ACCOUNT SUMMARY</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:flex;justify-content:space-between;padding:8px 12px;border:2px solid var(--black);background:var(--white);">
               <span style="font-size:.72rem;">Storage Charges</span>
@@ -682,83 +553,55 @@
               <span style="font-size:.72rem;">Bandwidth Charges</span>
               <span style="font-size:.72rem;font-weight:700;">₹{{ "%.6f"|format(total_bw_cost) }}</span>
             </div>
-            <!-- Total charges -->
             <div style="display:flex;justify-content:space-between;padding:10px 12px;border:2px solid var(--black);background:var(--panel);">
               <span style="font-size:.72rem;font-weight:700;">Total Charges</span>
               <span style="font-size:.78rem;font-weight:700;" id="grandTotalDisplay">₹{{ "%.6f"|format(grand_total) }}</span>
             </div>
-            <!-- Payments made -->
             <div style="display:flex;justify-content:space-between;padding:10px 12px;border:2px solid #065F46;background:#f0fff8;">
-              <span style="font-size:.72rem;font-weight:700;color:#065F46;">
-                Payments Made ({{ payment_count }})
-              </span>
-              <span style="font-size:.78rem;font-weight:700;color:#065F46;">
-                − ₹{{ "%.6f"|format(payments_made) }}
-              </span>
+              <span style="font-size:.72rem;font-weight:700;color:#065F46;">Payments Made ({{ payment_count }})</span>
+              <span style="font-size:.78rem;font-weight:700;color:#065F46;">− ₹{{ "%.6f"|format(payments_made) }}</span>
             </div>
-            <!-- Balance due -->
             <div style="display:flex;justify-content:space-between;padding:12px 14px;border:3px solid var(--black);background:var(--black);">
               <span style="font-size:.78rem;font-weight:700;color:var(--yellow);">BALANCE DUE</span>
-              <span class="bebas" style="font-size:1.4rem;
-                color:{% if balance_due <= 0 %}var(--green){% else %}var(--yellow){% endif %};">
-                {% if balance_due <= 0 %}
-                  ₹0.000000 ✓
-                {% else %}
-                  ₹{{ "%.6f"|format(balance_due) }}
-                {% endif %}
+              <span class="bebas" style="font-size:1.4rem;color:{% if balance_due <= 0 %}var(--green){% else %}var(--yellow){% endif %};">
+                {% if balance_due <= 0 %}₹0.000000 ✓{% else %}₹{{ "%.6f"|format(balance_due) }}{% endif %}
               </span>
             </div>
           </div>
           <div style="margin-top:12px;padding:10px 14px;background:var(--white);border:2px solid var(--black);font-size:.65rem;opacity:.6;line-height:1.7;">
-            💳 Payments are processed securely.<br/>
-            Your card details are never stored on our servers.<br/>
-            Currency: INR (Indian Rupee)
+            💳 Payments are processed securely.<br/>Your card details are never stored on our servers.<br/>Currency: INR (Indian Rupee)
           </div>
         </div>
 
-        <!-- Payment form or settled state -->
         {% if balance_due <= 0 %}
         <div style="text-align:center;padding:32px 20px;border:3px solid var(--green);background:#f0fff8;box-shadow:6px 6px 0 var(--black);">
           <div style="font-size:3rem;margin-bottom:12px;">✅</div>
           <div class="bebas" style="font-size:2rem;color:#065F46;letter-spacing:.1em;">ACCOUNT FULLY SETTLED</div>
-          <div style="font-size:.72rem;margin-top:8px;opacity:.6;">
-            {{ payment_count }} payment(s) made · ₹{{ "%.6f"|format(payments_made) }} total paid
-          </div>
+          <div style="font-size:.72rem;margin-top:8px;opacity:.6;">{{ payment_count }} payment(s) made · ₹{{ "%.6f"|format(payments_made) }} total paid</div>
           <div style="margin-top:16px;">
-            <button onclick="loadPaymentHistory()" class="btn btn-sm"
-              style="background:var(--green);color:var(--black);border-color:var(--green);box-shadow:3px 3px 0 #00aa55;">
-              📋 VIEW PAYMENT HISTORY
-            </button>
+            <button onclick="loadPaymentHistory()" class="btn btn-sm" style="background:var(--green);color:var(--black);border-color:var(--green);box-shadow:3px 3px 0 #00aa55;">📋 VIEW PAYMENT HISTORY</button>
           </div>
         </div>
         {% else %}
         <div id="payFormWrap">
-          <div style="font-size:.65rem;font-weight:700;letter-spacing:.15em;opacity:.5;margin-bottom:12px;">
-            CARD DETAILS
-          </div>
+          <div style="font-size:.65rem;font-weight:700;letter-spacing:.15em;opacity:.5;margin-bottom:12px;">CARD DETAILS</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
-
             <div>
               <label style="font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.55;display:block;margin-bottom:5px;">CARDHOLDER NAME</label>
-              <input type="text" id="cardName" placeholder="CAROL PROD"
-                style="width:100%;border:2px solid var(--black);background:var(--white);font-family:'Space Mono',monospace;font-size:.8rem;padding:10px 12px;outline:none;box-shadow:3px 3px 0 var(--black);" />
+              <input type="text" id="cardName" placeholder="CAROL PROD" style="width:100%;border:2px solid var(--black);background:var(--white);font-family:'Space Mono',monospace;font-size:.8rem;padding:10px 12px;outline:none;box-shadow:3px 3px 0 var(--black);" />
             </div>
-
             <div>
               <label style="font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.55;display:block;margin-bottom:5px;">CARD NUMBER</label>
               <div style="position:relative;">
-                <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242"
-                  maxlength="19" oninput="formatCard(this)"
+                <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" oninput="formatCard(this)"
                   style="width:100%;border:2px solid var(--black);background:var(--white);font-family:'Space Mono',monospace;font-size:.85rem;padding:10px 48px 10px 12px;outline:none;box-shadow:3px 3px 0 var(--black);letter-spacing:.1em;" />
                 <div id="cardTypeIcon" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:.65rem;font-weight:700;opacity:.4;">CARD</div>
               </div>
             </div>
-
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div>
                 <label style="font-size:.6rem;font-weight:700;letter-spacing:.15em;opacity:.55;display:block;margin-bottom:5px;">EXPIRY</label>
-                <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5"
-                  oninput="formatExpiry(this)"
+                <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)"
                   style="width:100%;border:2px solid var(--black);background:var(--white);font-family:'Space Mono',monospace;font-size:.85rem;padding:10px 12px;outline:none;box-shadow:3px 3px 0 var(--black);" />
               </div>
               <div>
@@ -767,21 +610,14 @@
                   style="width:100%;border:2px solid var(--black);background:var(--white);font-family:'Space Mono',monospace;font-size:.85rem;padding:10px 12px;outline:none;box-shadow:3px 3px 0 var(--black);" />
               </div>
             </div>
-
             <div id="cardError" style="display:none;padding:8px 12px;background:#ffe0e8;border:2px solid var(--hot);font-size:.72rem;color:var(--hot);font-weight:700;"></div>
-
-            <button id="payBtn" onclick="processPayment()"
-              class="btn"
+            <button id="payBtn" onclick="processPayment()" class="btn"
               style="background:var(--hot);color:#fff;border-color:var(--hot);box-shadow:5px 5px 0 #aa1040;font-size:.85rem;padding:14px;width:100%;margin-top:4px;">
               💳 PAY ₹{{ "%.6f"|format(balance_due) }} NOW
             </button>
-            <div style="text-align:center;font-size:.6rem;opacity:.4;">
-              🔒 256-bit encrypted · Test mode · No real charges
-            </div>
+            <div style="text-align:center;font-size:.6rem;opacity:.4;">🔒 256-bit encrypted · Test mode · No real charges</div>
           </div>
         </div>
-
-        <!-- Success state -->
         <div id="paySuccessWrap" style="display:none;">
           <div style="text-align:center;padding:32px 20px;border:3px solid var(--green);background:#f0fff8;box-shadow:6px 6px 0 var(--black);">
             <div style="font-size:3rem;margin-bottom:12px;">✅</div>
@@ -789,21 +625,17 @@
             <div id="successPaymentId" style="font-size:.72rem;margin-top:8px;opacity:.6;font-family:'Courier New',monospace;"></div>
             <div id="successAmount" style="font-size:.85rem;font-weight:700;margin-top:8px;color:#065F46;"></div>
             <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-              <a id="receiptLink" href="#" class="btn btn-sm"
-                style="background:var(--green);color:var(--black);border-color:var(--green);box-shadow:3px 3px 0 #00aa55;">
-                ⎙ VIEW RECEIPT
-              </a>
+              <a id="receiptLink" href="#" class="btn btn-sm" style="background:var(--green);color:var(--black);border-color:var(--green);box-shadow:3px 3px 0 #00aa55;">⎙ VIEW RECEIPT</a>
               <button onclick="location.reload()" class="btn btn-black btn-sm">↻ REFRESH</button>
             </div>
           </div>
         </div>
         {% endif %}
-
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════ PAYMENT HISTORY -->
+  <!-- PAYMENT HISTORY -->
   <div id="paymentHistorySection" class="card" style="margin-bottom:var(--gap);overflow:hidden;display:none;">
     <div style="padding:14px 20px;border-bottom:3px solid var(--black);">
       <span class="tag">PAYMENT HISTORY</span>
@@ -812,17 +644,7 @@
     <div style="overflow-x:auto;">
       <table id="paymentHistoryTable">
         <thead>
-          <tr>
-            <th>PAYMENT ID</th>
-            <th>AMOUNT</th>
-            <th>STORAGE</th>
-            <th>REQUESTS</th>
-            <th>BANDWIDTH</th>
-            <th>CARD</th>
-            <th>STATUS</th>
-            <th>PAID AT</th>
-            <th>RECEIPT</th>
-          </tr>
+          <tr><th>PAYMENT ID</th><th>AMOUNT</th><th>STORAGE</th><th>REQUESTS</th><th>BANDWIDTH</th><th>CARD</th><th>STATUS</th><th>PAID AT</th><th>RECEIPT</th></tr>
         </thead>
         <tbody id="paymentHistoryBody"></tbody>
       </table>
@@ -833,10 +655,7 @@
   <div style="display:flex;gap:12px;margin-bottom:var(--gap);" class="no-print">
     <a href="/" class="btn btn-black btn-sm">← BACK TO DASHBOARD</a>
     <button onclick="window.print()" class="btn btn-yellow btn-sm">⎙ PRINT / SAVE PDF</button>
-    <button onclick="loadPaymentHistory()" class="btn btn-sm"
-      style="background:var(--cool);color:#fff;border-color:var(--cool);box-shadow:3px 3px 0 #003aaa;">
-      📋 PAYMENT HISTORY
-    </button>
+    <button onclick="loadPaymentHistory()" class="btn btn-sm" style="background:var(--cool);color:#fff;border-color:var(--cool);box-shadow:3px 3px 0 #003aaa;">📋 PAYMENT HISTORY</button>
   </div>
 
   <footer>
@@ -848,25 +667,21 @@
 </div>
 
 <script>
-  /* ── Card formatting ─────────────────────────────────────────────────── */
   function formatCard(input) {
     let v = input.value.replace(/\D/g, '').substring(0, 16);
     input.value = v.replace(/(.{4})/g, '$1 ').trim();
-    // Detect card type
     const icon = document.getElementById("cardTypeIcon");
-    if (v.startsWith('4'))            { icon.textContent = "VISA";       icon.style.color = "#1A1F71"; }
-    else if (v.startsWith('5'))       { icon.textContent = "MASTER";     icon.style.color = "#EB001B"; }
-    else if (v.startsWith('37') || v.startsWith('34')) { icon.textContent = "AMEX"; icon.style.color = "#007BC1"; }
-    else if (v.startsWith('6'))       { icon.textContent = "RUPAY";      icon.style.color = "#FF6B00"; }
-    else                              { icon.textContent = "CARD";       icon.style.color = "#888"; }
+    if (v.startsWith('4'))                              { icon.textContent = "VISA";   icon.style.color = "#1A1F71"; }
+    else if (v.startsWith('5'))                         { icon.textContent = "MASTER"; icon.style.color = "#EB001B"; }
+    else if (v.startsWith('37') || v.startsWith('34')) { icon.textContent = "AMEX";   icon.style.color = "#007BC1"; }
+    else if (v.startsWith('6'))                         { icon.textContent = "RUPAY";  icon.style.color = "#FF6B00"; }
+    else                                                { icon.textContent = "CARD";   icon.style.color = "#888"; }
   }
-
   function formatExpiry(input) {
     let v = input.value.replace(/\D/g, '').substring(0, 4);
     if (v.length >= 2) v = v.substring(0,2) + '/' + v.substring(2);
     input.value = v;
   }
-
   function getCardType() {
     const v = document.getElementById("cardNumber").value.replace(/\D/g,'');
     if (v.startsWith('4'))  return 'VISA';
@@ -875,118 +690,67 @@
     if (v.startsWith('6'))  return 'RUPAY';
     return 'CARD';
   }
-
   function validateCard() {
     const name   = document.getElementById("cardName").value.trim();
     const number = document.getElementById("cardNumber").value.replace(/\s/g,'');
     const expiry = document.getElementById("cardExpiry").value;
     const cvv    = document.getElementById("cardCvv").value;
     const err    = document.getElementById("cardError");
-
-    if (!name)               { err.textContent = "✗ Cardholder name is required.";   err.style.display='block'; return false; }
-    if (number.length < 16)  { err.textContent = "✗ Enter a valid 16-digit card number."; err.style.display='block'; return false; }
+    if (!name)              { err.textContent = "✗ Cardholder name is required.";      err.style.display='block'; return false; }
+    if (number.length < 16) { err.textContent = "✗ Enter a valid 16-digit card number."; err.style.display='block'; return false; }
     if (!/^\d{2}\/\d{2}$/.test(expiry)) { err.textContent = "✗ Enter expiry as MM/YY."; err.style.display='block'; return false; }
-    if (cvv.length < 3)      { err.textContent = "✗ Enter a valid CVV.";             err.style.display='block'; return false; }
-
-    // Check expiry not in past
+    if (cvv.length < 3)     { err.textContent = "✗ Enter a valid CVV.";               err.style.display='block'; return false; }
     const [mm, yy] = expiry.split('/').map(Number);
-    const now = new Date();
     const exp = new Date(2000 + yy, mm - 1);
-    if (exp < now)           { err.textContent = "✗ Card has expired.";               err.style.display='block'; return false; }
-
+    if (exp < new Date()) { err.textContent = "✗ Card has expired."; err.style.display='block'; return false; }
     err.style.display = 'none';
     return true;
   }
-
-  /* ── Process payment ─────────────────────────────────────────────────── */
   async function processPayment() {
     if (!validateCard()) return;
-
     const btn      = document.getElementById("payBtn");
     const cardNum  = document.getElementById("cardNumber").value.replace(/\s/g,'');
     const last4    = cardNum.slice(-4);
     const cardType = getCardType();
-
-    // Processing animation
-    btn.disabled     = true;
-    btn.textContent  = "⏳ PROCESSING...";
-    btn.style.background    = "#888";
-    btn.style.borderColor   = "#888";
-    btn.style.boxShadow     = "3px 3px 0 #444";
-
-    // Simulate 2 second processing delay (realistic UX)
+    btn.disabled = true; btn.textContent = "⏳ PROCESSING...";
+    btn.style.background = "#888"; btn.style.borderColor = "#888"; btn.style.boxShadow = "3px 3px 0 #444";
     await new Promise(r => setTimeout(r, 2000));
-
     try {
       const res  = await fetch("/payment/process", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ card_last4: last4, card_type: cardType }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_last4: last4, card_type: cardType }),
       });
       const data = await res.json();
-
       if (res.ok && data.success) {
-        // Hide form, show success
         document.getElementById("payFormWrap").style.display    = "none";
         document.getElementById("paySuccessWrap").style.display = "block";
-        document.getElementById("successPaymentId").textContent =
-          `Payment ID: ${data.payment_id}`;
-        document.getElementById("successAmount").textContent =
-          `₹${data.amount} paid successfully via ${cardType} ••••${last4}`;
-        document.getElementById("receiptLink").href =
-          `/payment/receipt/${data.payment_id}`;
-
-        // Show PAID badge on invoice header
+        document.getElementById("successPaymentId").textContent = `Payment ID: ${data.payment_id}`;
+        document.getElementById("successAmount").textContent    = `₹${data.amount} paid successfully via ${cardType} ••••${last4}`;
+        document.getElementById("receiptLink").href = `/payment/receipt/${data.payment_id}`;
         const dueEl = document.querySelector('.badge-due');
-        if (dueEl) {
-          dueEl.textContent        = "✓ PAID";
-          dueEl.style.background   = "var(--green)";
-          dueEl.style.color        = "var(--black)";
-          dueEl.style.borderColor  = "var(--green)";
-        }
-
-        // Update grand total display
+        if (dueEl) { dueEl.textContent = "✓ PAID"; dueEl.style.background = "var(--green)"; dueEl.style.color = "var(--black)"; dueEl.style.borderColor = "var(--green)"; }
         const totalEl = document.getElementById("grandTotalDisplay");
-        if (totalEl) {
-          totalEl.style.color     = "var(--green)";
-          totalEl.style.textDecoration = "line-through";
-          totalEl.style.opacity   = "0.5";
-        }
-
-        // Load payment history
+        if (totalEl) { totalEl.style.color = "var(--green)"; totalEl.style.textDecoration = "line-through"; totalEl.style.opacity = "0.5"; }
         await loadPaymentHistory();
-
       } else {
-        document.getElementById("cardError").textContent =
-          "✗ " + (data.detail || "Payment failed. Please try again.");
+        document.getElementById("cardError").textContent = "✗ " + (data.detail || "Payment failed. Please try again.");
         document.getElementById("cardError").style.display = "block";
-        btn.disabled    = false;
-        btn.textContent = "💳 RETRY PAYMENT";
-        btn.style.background  = "var(--hot)";
-        btn.style.borderColor = "var(--hot)";
-        btn.style.boxShadow   = "5px 5px 0 #aa1040";
+        btn.disabled = false; btn.textContent = "💳 RETRY PAYMENT";
+        btn.style.background = "var(--hot)"; btn.style.borderColor = "var(--hot)"; btn.style.boxShadow = "5px 5px 0 #aa1040";
       }
     } catch (err) {
-      document.getElementById("cardError").textContent =
-        "✗ Network error: " + err.message;
+      document.getElementById("cardError").textContent = "✗ Network error: " + err.message;
       document.getElementById("cardError").style.display = "block";
-      btn.disabled    = false;
-      btn.textContent = "💳 RETRY PAYMENT";
-      btn.style.background  = "var(--hot)";
-      btn.style.borderColor = "var(--hot)";
-      btn.style.boxShadow   = "5px 5px 0 #aa1040";
+      btn.disabled = false; btn.textContent = "💳 RETRY PAYMENT";
+      btn.style.background = "var(--hot)"; btn.style.borderColor = "var(--hot)"; btn.style.boxShadow = "5px 5px 0 #aa1040";
     }
   }
-
-  /* ── Payment history ─────────────────────────────────────────────────── */
   async function loadPaymentHistory() {
     const section = document.getElementById("paymentHistorySection");
     const tbody   = document.getElementById("paymentHistoryBody");
-
     try {
       const res  = await fetch("/payment/history");
       const data = await res.json();
-
       if (data.count === 0) {
         tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;opacity:.4;padding:20px;">No payments yet.</td></tr>`;
       } else {
@@ -998,34 +762,15 @@
             <td style="font-size:.68rem;">₹${p.request_charge.toFixed(6)}</td>
             <td style="font-size:.68rem;">₹${p.bandwidth_charge.toFixed(6)}</td>
             <td style="font-size:.68rem;">${p.card_type} ••••${p.card_last4}</td>
-            <td>
-              <span class="badge" style="background:#065F46;color:#fff;font-size:.58rem;border-color:#065F46;">
-                ✓ ${p.status.toUpperCase()}
-              </span>
-            </td>
+            <td><span class="badge" style="background:#065F46;color:#fff;font-size:.58rem;border-color:#065F46;">✓ ${p.status.toUpperCase()}</span></td>
             <td style="font-size:.65rem;opacity:.55;">${p.paid_at ? p.paid_at.slice(0,19) : '—'}</td>
-            <td>
-              <a href="/payment/receipt/${p.payment_id}" class="btn btn-sm"
-                style="background:var(--yellow);color:var(--black);font-size:.58rem;padding:4px 10px;box-shadow:2px 2px 0 var(--black);">
-                ⎙ RECEIPT
-              </a>
-            </td>
-          </tr>
-        `).join('');
+            <td><a href="/payment/receipt/${p.payment_id}" class="btn btn-sm" style="background:var(--yellow);color:var(--black);font-size:.58rem;padding:4px 10px;box-shadow:2px 2px 0 var(--black);">⎙ RECEIPT</a></td>
+          </tr>`).join('');
       }
-
       section.style.display = "block";
-
-    } catch(err) {
-      console.error("Failed to load payment history:", err);
-    }
+    } catch(err) { console.error("Failed to load payment history:", err); }
   }
-
-  // Auto-load payment history on page load
-  window.addEventListener('load', () => {
-    loadPaymentHistory();
-  });
-
+  window.addEventListener('load', () => { loadPaymentHistory(); });
   function toggleDetail(fileId) {
     const row = document.getElementById('detail-' + fileId);
     row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';

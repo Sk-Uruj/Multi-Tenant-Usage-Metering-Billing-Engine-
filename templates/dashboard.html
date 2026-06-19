@@ -58,6 +58,12 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
     .ticker { animation:pulse 2s ease-in-out infinite; display:inline-block; }
     .stat-num { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; line-height:1; }
+    .mime-badge {
+      display:inline-block; font-size:.52rem; font-weight:700; letter-spacing:.06em;
+      padding:1px 6px; border:1px solid rgba(0,0,0,.2); background:rgba(0,0,0,.06);
+      color:rgba(0,0,0,.5); border-radius:2px; margin-left:6px;
+      vertical-align:middle; text-transform:lowercase;
+    }
     /* Layout */
     .page { max-width:1440px; margin:0 auto; }
     .header { display:grid; grid-template-columns:1fr 230px; border:3px solid var(--black); box-shadow:6px 6px 0 var(--black); margin-bottom:var(--gap); overflow:hidden; }
@@ -94,7 +100,7 @@
   <header class="header">
     <div class="header-left">
       <div class="bebas" style="font-size:4.5rem;letter-spacing:.12em;color:var(--yellow);line-height:1;">STRATA</div>
-      <div style="font-size:.58rem;letter-spacing:.25em;color:#555;margin-top:4px;">MULTI-TENANT CLOUD STORAGE // 4-TIER // BUCKET NAMESPACES // v0.9.0</div>
+      <div style="font-size:.58rem;letter-spacing:.25em;color:#555;margin-top:4px;">MULTI-TENANT CLOUD STORAGE // 4-TIER // BUCKET NAMESPACES // v0.9.1</div>
       <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="badge badge-green" style="font-size:.65rem;padding:3px 12px;">✓ AUTHENTICATED</span>
         <span class="bebas" style="font-size:1.6rem;letter-spacing:.1em;color:var(--white);">{{ user.username }}</span>
@@ -181,10 +187,8 @@
           <span class="tag">BUCKETS</span>
           <span style="font-size:.62rem;opacity:.45;">IBM COS ListBuckets</span>
         </div>
-
-        <!-- Existing buckets -->
-            {% for b in buckets %}
-          <div class="card-inset" style="padding:10px 14px;margin-bottom:8px;">
+        {% for b in buckets %}
+        <div class="card-inset" style="padding:10px 14px;margin-bottom:8px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
               <span class="badge badge-orange" style="font-size:.6rem;">{{ b.name }}</span>
@@ -202,8 +206,6 @@
         {% else %}
         <div style="text-align:center;font-size:.7rem;opacity:.4;padding:10px 0;">No buckets yet.</div>
         {% endfor %}
-
-        <!-- Create new bucket -->
         <div style="margin-top:12px;padding-top:12px;border-top:2px solid rgba(0,0,0,.1);">
           <span class="label">CREATE NEW BUCKET</span>
           <input type="text" id="newBucketName" placeholder="e.g. my-backups" style="margin-bottom:8px;" />
@@ -337,7 +339,6 @@
           <span class="tag">BANDWIDTH</span>
           <span style="font-size:.62rem;opacity:.45;">egress billed · ingress free</span>
         </div>
-        <!-- Egress row -->
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--white);border:2px solid var(--black);margin-bottom:6px;">
           <div>
             <span class="badge" style="background:var(--orange);color:#fff;font-size:.55rem;">⬇ EGRESS</span>
@@ -351,7 +352,6 @@
             <div style="font-size:.55rem;opacity:.4;">₹{{ '%.4f'|format(bw_rate_per_mb * 1024) }}/GB</div>
           </div>
         </div>
-        <!-- Ingress row -->
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--white);border:2px solid var(--black);">
           <div>
             <span class="badge badge-green" style="font-size:.55rem;">⬆ INGRESS</span>
@@ -401,14 +401,8 @@
         <table>
           <thead>
             <tr>
-              <th>BUCKET NAME</th>
-              <th>CREATED</th>
-              <th>OBJECTS</th>
-              <th>TOTAL SIZE</th>
-              <th>HOT</th>
-              <th>COOL</th>
-              <th>COLD</th>
-              <th>ARCHIVE</th>
+              <th>BUCKET NAME</th><th>CREATED</th><th>OBJECTS</th>
+              <th>TOTAL SIZE</th><th>HOT</th><th>COOL</th><th>COLD</th><th>ARCHIVE</th>
             </tr>
           </thead>
           <tbody>
@@ -447,7 +441,7 @@
             <thead>
               <tr>
                 <th>ID</th><th>BUCKET</th><th>FILENAME</th>
-                <th>SIZE (MB)</th><th>TIER</th>
+                <th>TYPE</th><th>SIZE (MB)</th><th>TIER</th>
                 <th>CREATED</th><th>LAST ACCESS</th><th>ACT</th>
               </tr>
             </thead>
@@ -458,6 +452,14 @@
                 <td><span class="badge badge-orange" style="font-size:.58rem;">{{ f.bucket_name or 'default' }}</span></td>
                 <td style="font-weight:700;font-size:.75rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.filename }}">
                   {{ f.filename }}
+                </td>
+                <!-- NEW: MIME type badge — shows content_type if available, graceful fallback for pre-migration files -->
+                <td style="white-space:nowrap;">
+                  {% if f.content_type %}
+                    <span class="mime-badge">{{ f.content_type }}</span>
+                  {% else %}
+                    <span style="font-size:.6rem;opacity:.25;">—</span>
+                  {% endif %}
                 </td>
                 <td style="font-weight:700;">{{ "%.4f"|format(f.file_size_mb) }}</td>
                 <td>
@@ -527,7 +529,7 @@
   </div>
 
   <footer>
-    <span>STRATA // {{ user.username }} // v0.9.0</span>
+    <span>STRATA // {{ user.username }} // v0.9.1</span>
     <span>{{ now }}</span>
     <a href="/logout">LOGOUT ↗</a>
   </footer>
@@ -552,51 +554,34 @@
     navigator.clipboard.writeText(document.getElementById("myApiKey").value)
       .then(() => showToast("API KEY COPIED"));
   }
-
-  // ── Bucket operations ──────────────────────────────────────────────────
   async function createBucket() {
     const name = document.getElementById("newBucketName").value.trim().toLowerCase();
     if (!name) { showToast("ENTER A BUCKET NAME", false); return; }
     setStatus("bucketStatus", "⏳ Creating...");
     const res  = await fetch(`/buckets/${encodeURIComponent(name)}`, { method: "PUT" });
     const data = await res.json();
-    if (res.ok) {
-      showToast(`BUCKET '${name}' CREATED`);
-      setTimeout(() => location.reload(), 800);
-    } else {
-      setStatus("bucketStatus", "✗ " + (data.detail || "Failed."), "#ffe0e8");
-      showToast("FAILED", false);
-    }
+    if (res.ok) { showToast(`BUCKET '${name}' CREATED`); setTimeout(() => location.reload(), 800); }
+    else { setStatus("bucketStatus", "✗ " + (data.detail || "Failed."), "#ffe0e8"); showToast("FAILED", false); }
   }
-
   async function deleteBucket(name) {
     if (!confirm(`Delete bucket '${name}'?\nIt must be empty.`)) return;
     const res  = await fetch(`/buckets/${encodeURIComponent(name)}`, { method: "DELETE" });
     const data = await res.json();
-    if (res.ok) {
-      showToast(`BUCKET '${name}' DELETED`);
-      setTimeout(() => location.reload(), 800);
-    } else {
-      showToast(data.detail || "Failed — bucket may not be empty.", false);
-    }
+    if (res.ok) { showToast(`BUCKET '${name}' DELETED`); setTimeout(() => location.reload(), 800); }
+    else { showToast(data.detail || "Failed — bucket may not be empty.", false); }
   }
-
-  // ── Upload ─────────────────────────────────────────────────────────────
   async function uploadFile() {
     const file   = document.getElementById("fileInput").files[0];
     const bucket = document.getElementById("uploadBucket").value;
     if (!file) { showToast("SELECT A FILE", false); return; }
-
     const fd = new FormData();
-    fd.append("file", file);
-    fd.append("bucket", bucket);
+    fd.append("file", file); fd.append("bucket", bucket);
     setStatus("uploadStatus", "⏳ Uploading...");
-
     const res  = await fetch("/upload", { method: "POST", body: fd });
     const data = await res.json();
     if (res.ok) {
       setStatus("uploadStatus",
-        `✓ ${data.bucket}/${data.filename} · ${data.file_size_mb} MB → HOT`,
+        `✓ ${data.bucket}/${data.filename} · ${data.file_size_mb} MB → HOT · ${data.content_type || ''}`,
         "var(--cold)");
       showToast("OBJECT UPLOADED → HOT");
       setTimeout(() => location.reload(), 1100);
@@ -605,23 +590,18 @@
       showToast("UPLOAD FAILED", false);
     }
   }
-
-  // ── Download ───────────────────────────────────────────────────────────
   async function downloadFile() {
     const bucket   = document.getElementById("objBucket").value;
     const filename = document.getElementById("objFilename").value.trim();
     if (!filename) { showToast("ENTER FILENAME", false); return; }
     setStatus("objStatus", "⏳ Fetching...");
-
     const res = await fetch(`/files/${encodeURIComponent(bucket)}/${encodeURIComponent(filename)}`);
     if (res.ok) {
       const tier = res.headers.get("X-Storage-Tier") || "UNKNOWN";
       const blob = await res.blob();
       const a    = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-      setStatus("objStatus",
-        `✓ Downloaded from ${tier} → promoted to HOT`,
-        "var(--cold)");
+      setStatus("objStatus", `✓ Downloaded from ${tier} → promoted to HOT`, "var(--cold)");
       showToast("OBJECT RETRIEVED — PROMOTED TO HOT");
       setTimeout(() => location.reload(), 1200);
     } else {
@@ -630,8 +610,6 @@
       showToast("DOWNLOAD FAILED", false);
     }
   }
-
-  // ── Delete ─────────────────────────────────────────────────────────────
   async function deleteFile() {
     const bucket   = document.getElementById("objBucket").value;
     const filename = document.getElementById("objFilename").value.trim();
@@ -648,8 +626,6 @@
     if (res.ok) { showToast("DELETED // " + filename); setTimeout(() => location.reload(), 800); }
     else { showToast(data.detail || "DELETE FAILED", false); }
   }
-
-  // ── Key rotation ───────────────────────────────────────────────────────
   async function regenerateKey() {
     if (!confirm("⚠ ROTATE KEY?\nOld key immediately invalidated.\nProceed?")) return;
     const btn = document.getElementById("regenBtn");
@@ -665,16 +641,12 @@
     } else { showToast("ROTATION FAILED", false); }
     btn.textContent = "↻ ROTATE"; btn.disabled = false;
   }
-
-  // ── System reset ───────────────────────────────────────────────────────
   async function confirmReset() {
     if (!confirm("⚠ PURGE ALL DATA?\n\nAll buckets, files, billing wiped.\nUsers preserved.\nProceed?")) return;
     await fetch("/system/reset", { method: "POST" });
     showToast("SYSTEM WIPED — ALL CLEAR");
     setTimeout(() => location.reload(), 1000);
   }
-
-  // Auto-refresh every 30 seconds
   setTimeout(() => location.reload(), 30000);
 </script>
 </body>
