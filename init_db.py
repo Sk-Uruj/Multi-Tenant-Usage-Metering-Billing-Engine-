@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS files (
     hot_entered_at      TIMESTAMP,
     cool_entered_at     TIMESTAMP,
     cold_entered_at     TIMESTAMP,
-    archive_entered_at  TIMESTAMP
+    archive_entered_at  TIMESTAMP,
+    etag                TEXT,    -- MD5 hash of file content (IBM COS / S3 convention)
+    content_type        TEXT     -- MIME type, e.g. 'image/png', 'application/pdf'
 );
 """
 
@@ -192,6 +194,8 @@ def migrate_existing_db(conn):
         ("cool_entered_at",    "TIMESTAMP"),
         ("cold_entered_at",    "TIMESTAMP"),
         ("archive_entered_at", "TIMESTAMP"),
+        ("etag",               "TEXT"),
+        ("content_type",       "TEXT"),
     ]
     for col_name, col_def in new_cols:
         if col_name not in existing_cols:
