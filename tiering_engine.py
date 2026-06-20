@@ -23,6 +23,49 @@ POLL_INTERVAL_SECS   = 15
 # size stay in HOT permanently, regardless of how long they've been idle.
 MIN_TIERING_SIZE_MB = 128 / 1024  # 128KB expressed in MB ≈ 0.125
 
+# ---------------------------------------------------------------------------
+# File type classification — MIME-based tier policy
+#
+# Real lifecycle policies (AWS S3 Lifecycle, Azure Blob tiering) are often
+# written per content-type, not just per-age, because different file types
+# have predictably different access patterns:
+#   - Logs/text/backups are rarely re-read after creation → tier down FASTER
+#   - Media (images/video/audio) gets sporadic re-access  → STANDARD pace
+#   - Archives/binaries are write-once, rarely touched     → tier down FASTER
+#
+# Each class is a multiplier applied to the standard thresholds above.
+# < 1.0 = demotes faster than standard (e.g. 0.5 = half the normal wait)
+# = 1.0 = standard pace (the default for any unclassified/unknown type)
+# > 1.0 = demotes slower than standard (kept HOT/COOL longer)
+# ---------------------------------------------------------------------------
+TYPE_CLASS_RULES = [
+    # (prefix-match against content_type, multiplier, label)
+    ("text/",        0.5,  "log/text — demotes faster, rarely re-read"),
+    ("application/x-log", 0.5, "log — demotes faster, rarely re-read"),
+    ("application/zip",   0.5, "archive — write-once, demotes faster"),
+    ("application/x-tar", 0.5, "archive — write-once, demotes faster"),
+    ("application/gzip",  0.5, "archive — write-once, demotes faster"),
+    ("image/",       1.0,  "media — standard pace"),
+    ("video/",       1.5,  "media — demotes slower, re-accessed sporadically"),
+    ("audio/",       1.5,  "media — demotes slower, re-accessed sporadically"),
+]
+DEFAULT_TYPE_MULTIPLIER = 1.0  # unclassified / unknown content-type
+
+
+def classify_content_type(content_type: str) -> tuple:
+    """
+    Returns (multiplier, label) for a given content_type string by matching
+    the first prefix rule in TYPE_CLASS_RULES. Falls back to the standard
+    1.0x multiplier for unrecognized or missing content types.
+    """
+    if not content_type:
+        return (DEFAULT_TYPE_MULTIPLIER, "unclassified — standard pace")
+    for prefix, multiplier, label in TYPE_CLASS_RULES:
+        if content_type.startswith(prefix):
+            return (multiplier, label)
+    return (DEFAULT_TYPE_MULTIPLIER, "unclassified — standard pace")
+
+
 TIER_DIRS = {
     "HOT":     "storage/hot",
     "COOL":    "storage/cool",
@@ -59,7 +102,7 @@ def manage_storage_tiers():
             rows = conn.execute(
                 """
                 SELECT f.id, f.filename, f.file_size_mb,
-                       f.last_accessed_at, f.user_id,
+                       f.last_accessed_at, f.user_id, f.content_type,
                        u.username,
                        COALESCE(b.name, 'default') as bucket_name
                 FROM   files f
@@ -77,12 +120,13 @@ def manage_storage_tiers():
                         f"(threshold: {threshold_secs}s)...")
 
             for row in rows:
-                file_id     = row["id"]
-                filename    = row["filename"]
-                username    = row["username"]
-                user_id     = row["user_id"]
-                bucket_name = row["bucket_name"]
-                size_mb     = row["file_size_mb"]
+                file_id      = row["id"]
+                filename     = row["filename"]
+                username     = row["username"]
+                user_id      = row["user_id"]
+                bucket_name  = row["bucket_name"]
+                size_mb      = row["file_size_mb"]
+                content_type = row["content_type"]
 
                 try:
                     last_dt = datetime.fromisoformat(row["last_accessed_at"])
@@ -90,13 +134,18 @@ def manage_storage_tiers():
                     log("warning", f"  '{filename}' — bad timestamp, skipping.")
                     continue
 
+                # ── File type classification — adjust threshold by content-type ──
+                multiplier, type_label = classify_content_type(content_type)
+                effective_threshold = threshold_secs * multiplier
+
                 elapsed = (now - last_dt).total_seconds()
 
-                if elapsed <= threshold_secs:
-                    remaining = int(threshold_secs - elapsed)
+                if elapsed <= effective_threshold:
+                    remaining = int(effective_threshold - elapsed)
+                    mult_note = "" if multiplier == 1.0 else f" [{multiplier}x: {type_label}]"
                     log("info",
                         f"  '{filename}' ({username}/{bucket_name}) — "
-                        f"{int(elapsed)}s idle, {from_tier}→{to_tier} in ~{remaining}s")
+                        f"{int(elapsed)}s idle, {from_tier}→{to_tier} in ~{remaining}s{mult_note}")
                     continue
 
                 # ── Size-based exemption (AWS S3 Intelligent-Tiering rule) ──
@@ -147,10 +196,11 @@ def manage_storage_tiers():
                 )
 
                 total_demoted += 1
+                mult_note = "" if multiplier == 1.0 else f" [{multiplier}x: {type_label}]"
                 log("info",
                     f"  [DEMOTED] '{filename}' ({username}/{bucket_name}) | "
                     f"{size_mb:.3f} MB | {int(elapsed)}s idle | "
-                    f"{from_tier} → {to_tier}")
+                    f"{from_tier} → {to_tier}{mult_note}")
 
         conn.commit()
 
@@ -169,12 +219,14 @@ def manage_storage_tiers():
 def main():
     print()
     print("=" * 64)
-    print("  STRATA v0.9.0 — Bucket-Aware 4-Tier Tiering Engine")
+    print("  STRATA v0.9.1 — Bucket-Aware 4-Tier Tiering Engine")
     print(f"  HOT→COOL: {HOT_TO_COOL_SECS}s  |  "
           f"COOL→COLD: {COOL_TO_COLD_SECS}s  |  "
           f"COLD→ARCHIVE: {COLD_TO_ARCHIVE_SECS}s")
     print(f"  Size exemption: files < {MIN_TIERING_SIZE_MB*1024:.0f}KB never tier "
           f"(AWS S3 Intelligent-Tiering rule)")
+    print(f"  Type classification: text/log/archive=0.5x faster, "
+          f"video/audio=1.5x slower, image/other=1.0x standard")
     print(f"  Path: storage/{{tier}}/{{username}}/{{bucket}}/{{filename}}")
     print(f"  Poll interval: {POLL_INTERVAL_SECS}s  |  Press Ctrl+C to stop.")
     print("=" * 64)
