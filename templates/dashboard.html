@@ -253,7 +253,7 @@
         <span class="label">FILENAME</span>
         <input type="text" id="objFilename" placeholder="e.g. report.pdf" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-          <button class="btn btn-cyan" onclick="downloadFile()">⬇ GET</button>
+          <button class="btn btn-cyan" id="getBtn" onclick="downloadFile()">⬇ GET</button>
           <button class="btn btn-red"  onclick="deleteFile()">🗑 DEL</button>
         </div>
         <div class="status-box" id="objStatus"></div>
@@ -450,7 +450,9 @@
               <tr>
                 <td style="opacity:.35;font-size:.68rem;">#{{ f.id }}</td>
                 <td><span class="badge badge-orange" style="font-size:.58rem;">{{ f.bucket_name or 'default' }}</span></td>
-                <td style="font-weight:700;font-size:.75rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.filename }}">
+                <td style="font-weight:700;font-size:.75rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline dotted;"
+                    title="Click to load into OBJECTS panel: {{ f.filename }}"
+                    onclick="selectFileForObjects({{ (f.bucket_name or 'default')|tojson }}, {{ f.filename|tojson }})">
                   {{ f.filename }}
                 </td>
                 <!-- NEW: MIME type badge — shows content_type if available, graceful fallback for pre-migration files -->
@@ -475,7 +477,10 @@
                 </td>
                 <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.created_at[:19] }}</td>
                 <td style="font-size:.68rem;opacity:.55;white-space:nowrap;">{{ f.last_accessed_at[:19] }}</td>
-                <td>
+                <td style="white-space:nowrap;">
+                  <button class="btn btn-cyan btn-sm" style="padding:3px 8px;margin-right:4px;"
+                    title="Download this exact file — no typing required"
+                    onclick="quickDownload({{ (f.bucket_name or 'default')|tojson }}, {{ f.filename|tojson }})">⬇</button>
                   <button class="btn btn-red btn-sm" style="padding:3px 8px;"
                     onclick="quickDelete({{ (f.bucket_name or 'default')|tojson }}, {{ f.filename|tojson }})">✕</button>
                 </td>
@@ -594,21 +599,81 @@
     const bucket   = document.getElementById("objBucket").value;
     const filename = document.getElementById("objFilename").value.trim();
     if (!filename) { showToast("ENTER FILENAME", false); return; }
-    setStatus("objStatus", "⏳ Fetching...");
-    const res = await fetch(`/files/${encodeURIComponent(bucket)}/${encodeURIComponent(filename)}`);
-    if (res.ok) {
-      const tier = res.headers.get("X-Storage-Tier") || "UNKNOWN";
-      const blob = await res.blob();
-      const a    = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-      setStatus("objStatus", `✓ Downloaded from ${tier} → promoted to HOT`, "var(--cold)");
-      showToast("OBJECT RETRIEVED — PROMOTED TO HOT");
-      setTimeout(() => location.reload(), 1200);
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setStatus("objStatus", "✗ " + (d.detail || `HTTP ${res.status}`), "#ffe0e8");
+    await _doDownload(bucket, filename);
+  }
+
+  // Called from a Storage Matrix row's ⬇ button — uses the EXACT bucket and
+  // filename stored in the database (via Jinja |tojson), so there is zero
+  // chance of typos, truncation, or copy-paste mismatches like a missing
+  // file extension. This bypasses manual typing entirely.
+  async function quickDownload(bucket, filename) {
+    // Keep the OBJECTS panel in sync so the UI reflects what's being downloaded
+    document.getElementById("objBucket").value = bucket;
+    document.getElementById("objFilename").value = filename;
+    await _doDownload(bucket, filename);
+  }
+
+  // Click a filename in the Storage Matrix to load it into the OBJECTS
+  // panel without downloading — useful if you want to review before
+  // clicking GET or DEL yourself.
+  function selectFileForObjects(bucket, filename) {
+    document.getElementById("objBucket").value = bucket;
+    document.getElementById("objFilename").value = filename;
+    showToast(`LOADED '${filename}' INTO OBJECTS PANEL`);
+  }
+
+  async function _doDownload(bucket, filename) {
+    const btn = document.getElementById("getBtn");
+
+    // Guard against double-clicks — if a download is already in flight,
+    // ignore this click entirely instead of firing a second request.
+    if (btn.disabled) return;
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "⏳ RETRIEVING...";
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "not-allowed";
+
+    setStatus("objStatus",
+      "⏳ Fetching... (files in ARCHIVE may take a few seconds to retrieve)");
+
+    try {
+      const res = await fetch(`/files/${encodeURIComponent(bucket)}/${encodeURIComponent(filename)}`);
+
+      if (res.ok) {
+        const tier  = res.headers.get("X-Storage-Tier") || "UNKNOWN";
+        const delay = res.headers.get("X-Retrieval-Delay-Secs") || "0";
+        const blob  = await res.blob();
+        const a     = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+
+        const delayNote = (delay !== "0") ? ` (after ${delay}s archive retrieval)` : "";
+        setStatus("objStatus",
+          `✓ Downloaded from ${tier} → promoted to HOT${delayNote}`,
+          "var(--cold)");
+        showToast("OBJECT RETRIEVED — PROMOTED TO HOT");
+        setTimeout(() => location.reload(), 1200);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setStatus("objStatus", "✗ " + (d.detail || `HTTP ${res.status}`), "#ffe0e8");
+        showToast("DOWNLOAD FAILED", false);
+        // Re-enable the button on failure so the user can retry
+        btn.disabled = false;
+        btn.textContent = originalText;
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
+      }
+    } catch (err) {
+      setStatus("objStatus", "✗ Network error: " + err.message, "#ffe0e8");
       showToast("DOWNLOAD FAILED", false);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
     }
+    // On success we intentionally leave the button disabled — the page
+    // reloads in 1.2s anyway, which naturally resets all button states.
   }
   async function deleteFile() {
     const bucket   = document.getElementById("objBucket").value;
