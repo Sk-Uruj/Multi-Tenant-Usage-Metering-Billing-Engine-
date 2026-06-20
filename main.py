@@ -17,6 +17,8 @@ import shutil
 import sqlite3
 import uuid
 import bcrypt
+import hashlib
+import mimetypes
 from datetime import datetime
 from typing import Annotated
 
@@ -164,6 +166,19 @@ SessionUser = Annotated[dict, Depends(get_session_user)]
 
 def tier_file_path(tier: str, username: str, bucket: str, filename: str) -> str:
     return os.path.join(TIER_DIRS[tier], username, bucket, filename)
+
+
+def compute_etag(contents: bytes) -> str:
+    """MD5 hash of the exact byte content — the AWS S3 / IBM COS ETag convention.
+    Lets a client verify a file's integrity hasn't changed since upload."""
+    return hashlib.md5(contents).hexdigest()
+
+
+def guess_content_type(filename: str) -> str:
+    """MIME type detection from the filename, falling back to a generic binary type
+    when the extension is unrecognized (matches S3/IBM COS default behavior)."""
+    content_type, _ = mimetypes.guess_type(filename)
+    return content_type or "application/octet-stream"
 
 
 def get_bucket(conn, user_id: int, bucket_name: str):
@@ -434,10 +449,21 @@ async def upload_file(
         with open(file_path, "wb") as f:
             f.write(contents)
 
+        # Object metadata — computed once at upload time, matching the
+        # IBM COS / AWS S3 convention of returning ETag + Content-Type
+        # on every object.
+        etag         = compute_etag(contents)
+        content_type = guess_content_type(file.filename)
+
         now = datetime.utcnow().isoformat()
         cursor = conn.execute(
-            "INSERT INTO files (user_id, bucket_id, filename, file_size_mb, storage_tier, created_at, last_accessed_at, hot_entered_at) VALUES (?,?,?,?,'HOT',?,?,?)",
-            (user_id, bucket_id, file.filename, file_size_mb, now, now, now),
+            """
+            INSERT INTO files
+                   (user_id, bucket_id, filename, file_size_mb, storage_tier,
+                    created_at, last_accessed_at, hot_entered_at, etag, content_type)
+            VALUES (?,?,?,?,'HOT',?,?,?,?,?)
+            """,
+            (user_id, bucket_id, file.filename, file_size_mb, now, now, now, etag, content_type),
         )
         log_bandwidth(conn, user_id, cursor.lastrowid, bucket, file.filename, file_size_mb, "ingress")
         conn.commit()
@@ -462,6 +488,8 @@ async def upload_file(
         "file_size_mb": round(file_size_mb, 4),
         "storage_tier": "HOT",
         "uploaded_at":  now,
+        "etag":         etag,
+        "content_type": content_type,
     })
 
 # ---------------------------------------------------------------------------
@@ -480,16 +508,23 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
             raise HTTPException(status_code=404, detail=f"Bucket '{bucket}' not found.")
 
         row = conn.execute(
-            "SELECT id, filename, storage_tier, user_id, file_size_mb FROM files WHERE user_id=? AND bucket_id=? AND filename=? ORDER BY created_at DESC LIMIT 1",
+            """
+            SELECT id, filename, storage_tier, user_id, file_size_mb, etag, content_type
+            FROM   files
+            WHERE  user_id=? AND bucket_id=? AND filename=?
+            ORDER  BY created_at DESC LIMIT 1
+            """,
             (user_id, bucket_row["id"], filename),
         ).fetchone()
 
         if row is None:
             raise HTTPException(status_code=404, detail=f"'{filename}' not found in bucket '{bucket}'.")
 
-        row_dict  = dict(row)
-        current   = row_dict["storage_tier"]
-        file_path = tier_file_path(current, username, bucket, filename)
+        row_dict     = dict(row)
+        current      = row_dict["storage_tier"]
+        file_path    = tier_file_path(current, username, bucket, filename)
+        etag         = row_dict.get("etag") or ""
+        content_type = row_dict.get("content_type") or "application/octet-stream"
 
         if not os.path.exists(file_path):
             raise HTTPException(status_code=410, detail="File missing from disk.")
@@ -511,8 +546,8 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
     return FileResponse(
         path=hot_path if os.path.exists(hot_path) else file_path,
         filename=filename,
-        media_type="application/octet-stream",
-        headers={"X-Storage-Tier": current, "X-Bucket": bucket},
+        media_type=content_type,
+        headers={"X-Storage-Tier": current, "X-Bucket": bucket, "ETag": f'"{etag}"' if etag else ""},
     )
 
 # ---------------------------------------------------------------------------
@@ -571,7 +606,8 @@ def list_files(current_user: SessionUser):
         rows = conn.execute(
             """
             SELECT f.id, f.filename, f.file_size_mb, f.storage_tier,
-                   f.created_at, f.last_accessed_at, b.name as bucket_name
+                   f.created_at, f.last_accessed_at, f.etag, f.content_type,
+                   b.name as bucket_name
             FROM   files f
             LEFT JOIN buckets b ON b.id = f.bucket_id
             WHERE  f.user_id=? ORDER BY f.created_at DESC
@@ -603,6 +639,7 @@ def dashboard(request: Request, current_user: SessionUser):
                    f.created_at, f.last_accessed_at,
                    f.hot_entered_at, f.cool_entered_at,
                    f.cold_entered_at, f.archive_entered_at,
+                   f.etag, f.content_type,
                    b.name as bucket_name
             FROM   files f
             LEFT JOIN buckets b ON b.id = f.bucket_id
