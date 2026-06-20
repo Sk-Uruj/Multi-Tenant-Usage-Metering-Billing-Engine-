@@ -13,6 +13,8 @@ Run with:
 import os
 import sqlite3
 import time
+from dotenv import load_dotenv
+load_dotenv()  # reads .env file in the project root, if present
 from collections import defaultdict
 from datetime import datetime
 
