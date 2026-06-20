@@ -19,8 +19,13 @@ import uuid
 import bcrypt
 import hashlib
 import mimetypes
+import time
+import secrets
 from datetime import datetime
 from typing import Annotated
+
+from dotenv import load_dotenv
+load_dotenv()  # reads .env file in the project root, if present
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -32,8 +37,28 @@ from starlette.middleware.sessions import SessionMiddleware
 # Config
 # ---------------------------------------------------------------------------
 
-DB_NAME        = "cloud_storage.db"
-SESSION_SECRET = "CHANGE_THIS_IN_PRODUCTION"
+DB_NAME = "cloud_storage.db"
+
+# SESSION_SECRET is read from the SESSION_SECRET environment variable
+# (typically set via a .env file — see .env.example for the format).
+# If it's not set anywhere, we generate a random secret for THIS RUN ONLY
+# and print a loud warning — every server restart would otherwise
+# invalidate all existing sessions, forcing everyone to log in again.
+# Always set SESSION_SECRET explicitly outside of local development.
+SESSION_SECRET = os.getenv("SESSION_SECRET")
+if not SESSION_SECRET:
+    SESSION_SECRET = secrets.token_hex(32)
+    print(
+        "\n  [WARNING] SESSION_SECRET not set in environment or .env file.\n"
+        "  Generated a temporary random secret for this run only —\n"
+        "  all existing sessions will be invalidated on next restart.\n"
+        "  Set SESSION_SECRET in a .env file to fix this. See .env.example.\n"
+    )
+
+# AWS S3 Glacier / Azure Archive tier both have real rehydration delays
+# before an archived object becomes downloadable again (hours, in production).
+# This simulates that wait on a demo-friendly timescale.
+ARCHIVE_RETRIEVAL_DELAY_SECS = 6
 
 TIER_DIRS = {
     "HOT":     "storage/hot",
@@ -197,10 +222,20 @@ def log_tier_event(conn, file_id, user_id, from_tier, to_tier, event_type, ts):
 
 
 def promote_to_hot(conn, row: dict, username: str, bucket: str, now_iso: str):
-    current  = row["storage_tier"]
+    """
+    Promotes a file back to HOT tier. Resilient to a race with the
+    background tiering engine: if the file isn't where the DB says it
+    should be (because the tiering engine demoted it again in the gap
+    between our read and this call), we re-check the DB's CURRENT tier
+    once more before giving up — rather than silently marking the file
+    HOT in the database while leaving it physically wherever it actually
+    is. This prevents the DB and disk from drifting out of sync, which
+    is the actual root cause of files getting permanently "stuck."
+    """
     file_id  = row["id"]
     user_id  = row["user_id"]
     filename = row["filename"]
+    current  = row["storage_tier"]
 
     if current == "HOT":
         conn.execute(
@@ -216,6 +251,39 @@ def promote_to_hot(conn, row: dict, username: str, bucket: str, now_iso: str):
     if os.path.exists(src):
         os.makedirs(dst_dir, exist_ok=True)
         shutil.move(src, dst)
+    else:
+        # Expected location is empty — the tiering engine may have just
+        # demoted this file further in the gap since we last checked.
+        # Re-fetch the CURRENT tier from the DB right now and retry once
+        # against the up-to-date location before giving up.
+        retry_row = conn.execute(
+            "SELECT storage_tier FROM files WHERE id=?", (file_id,)
+        ).fetchone()
+        retry_tier = retry_row["storage_tier"] if retry_row else current
+
+        if retry_tier != current:
+            current = retry_tier
+            src = tier_file_path(current, username, bucket, filename)
+
+        if current == "HOT":
+            # The engine already moved it to HOT somehow (shouldn't
+            # normally happen, but guard against it) — nothing more to do.
+            conn.execute(
+                "UPDATE files SET last_accessed_at=? WHERE id=?",
+                (now_iso, file_id),
+            )
+            return
+
+        if os.path.exists(src):
+            os.makedirs(dst_dir, exist_ok=True)
+            shutil.move(src, dst)
+        else:
+            # Still not found even after the retry — genuinely missing
+            # from disk. Do NOT silently claim success; log it loudly
+            # instead of letting the DB drift away from physical reality.
+            print(f"[WARNING] promote_to_hot: '{filename}' not found at "
+                  f"expected path '{src}' (tier={current}). "
+                  f"Updating DB anyway as a last resort, but file may be lost.")
 
     conn.execute(
         "UPDATE files SET storage_tier='HOT', last_accessed_at=?, hot_entered_at=? WHERE id=?",
@@ -529,8 +597,48 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
         if not os.path.exists(file_path):
             raise HTTPException(status_code=410, detail="File missing from disk.")
 
+    except HTTPException:
+        raise
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+    finally:
+        # Close the connection BEFORE the archive sleep — never hold a SQLite
+        # connection open and idle across a long blocking wait, since the
+        # tiering/billing engines write to the same file every 10-15s and
+        # can hit "database is locked" if this connection sits open.
+        conn.close()
+
+    # ── Archive retrieval latency simulation ────────────────────────────────
+    # Real AWS S3 Glacier / Azure Archive tier require a "rehydration" wait
+    # before an archived object becomes downloadable (hours, in production).
+    # We simulate that wait here on a demo-friendly scale. The DB connection
+    # above is already closed, so this sleep never blocks other processes.
+    if current == "ARCHIVE":
+        time.sleep(ARCHIVE_RETRIEVAL_DELAY_SECS)
+
+    # ── Re-open a fresh connection for the write phase ──────────────────────
+    conn = get_conn()
+    try:
+        # Re-fetch the file's CURRENT tier before promoting. If the tiering
+        # engine demoted this file further (e.g. COOL→COLD) while we were
+        # asleep or simply between requests, the snapshot we read earlier
+        # (row_dict) is now stale — using it would compute the WRONG source
+        # path, silently skip the physical move, and still mark the DB as
+        # HOT even though the file never actually moved. Always promote from
+        # wherever the file truly is right now, not where it was when we
+        # started handling this request.
+        fresh_row = conn.execute(
+            "SELECT id, user_id, filename, storage_tier FROM files WHERE id=?",
+            (row_dict["id"],),
+        ).fetchone()
+
+        if fresh_row is None:
+            raise HTTPException(status_code=404, detail="File was deleted during retrieval.")
+
+        fresh_row_dict = dict(fresh_row)
+
         now_iso = datetime.utcnow().isoformat()
-        promote_to_hot(conn, row_dict, username, bucket, now_iso)
+        promote_to_hot(conn, fresh_row_dict, username, bucket, now_iso)
         log_bandwidth(conn, user_id, row_dict["id"], bucket, filename, row_dict["file_size_mb"], "egress")
         conn.commit()
 
@@ -539,7 +647,8 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
     except HTTPException:
         raise
     except sqlite3.Error as exc:
-        raise HTTPException(status_code=500, detail=f"DB error: {exc}")
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"DB error during promotion: {exc}")
     finally:
         conn.close()
 
@@ -547,7 +656,12 @@ def download_file(bucket: str, filename: str, current_user: SessionUser):
         path=hot_path if os.path.exists(hot_path) else file_path,
         filename=filename,
         media_type=content_type,
-        headers={"X-Storage-Tier": current, "X-Bucket": bucket, "ETag": f'"{etag}"' if etag else ""},
+        headers={
+            "X-Storage-Tier": current,
+            "X-Bucket": bucket,
+            "ETag": f'"{etag}"' if etag else "",
+            "X-Retrieval-Delay-Secs": str(ARCHIVE_RETRIEVAL_DELAY_SECS) if current == "ARCHIVE" else "0",
+        },
     )
 
 # ---------------------------------------------------------------------------
