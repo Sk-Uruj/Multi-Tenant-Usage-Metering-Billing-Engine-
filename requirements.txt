@@ -1,9 +1,21 @@
-fastapi
-uvicorn
-jinja2
-python-multipart
-itsdangerous
-pytest>=8.0.0
-httpx>=0.27.0
-bcrypt>=4.0.0
-python-dotenv>=1.0.0
+# STRATA — Production dependencies
+#
+# These versions are pinned to exact numbers that have been verified
+# working together (confirmed via the full test suite — see
+# requirements-test.txt and test_strata.py / test_api_integration.py).
+# Unpinned ("loose") version ranges risk pulling in a future breaking
+# change with no warning — exactly what happened when a newer starlette
+# release started requiring httpx2 instead of httpx for its test client.
+#
+# If you need to upgrade a package later, do it deliberately: upgrade
+# one at a time, re-run the full test suite, and only then update the
+# pinned version here.
+
+fastapi==0.138.1
+starlette==1.3.1
+uvicorn==0.49.0
+bcrypt==5.0.0
+python-multipart==0.0.32
+itsdangerous==2.2.0
+python-dotenv==1.2.2
+Jinja2==3.1.6
