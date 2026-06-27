@@ -356,6 +356,93 @@ def login_submit(request: Request,
     return RedirectResponse(url="/", status_code=302)
 
 
+@app.get("/signup", include_in_schema=False)
+def signup_page(request: Request):
+    if request.session.get("user_id"):
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="signup.html", context={"error": None}
+    )
+
+
+@app.post("/signup", include_in_schema=False)
+def signup_submit(request: Request,
+                  username: str = Form(...),
+                  password: str = Form(...),
+                  confirm_password: str = Form(...)):
+    username = username.strip()
+
+    # ── Validation ───────────────────────────────────────────────────────
+    if not re.match(r'^[a-zA-Z0-9_]{3,32}$', username):
+        return templates.TemplateResponse(
+            request=request, name="signup.html",
+            context={"error": "Username must be 3-32 characters: letters, numbers, underscores only."},
+            status_code=400,
+        )
+
+    if len(password) < 8:
+        return templates.TemplateResponse(
+            request=request, name="signup.html",
+            context={"error": "Password must be at least 8 characters."},
+            status_code=400,
+        )
+
+    if password != confirm_password:
+        return templates.TemplateResponse(
+            request=request, name="signup.html",
+            context={"error": "Passwords do not match."},
+            status_code=400,
+        )
+
+    # ── Create the account ──────────────────────────────────────────────
+    hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    api_key   = str(uuid.uuid4())
+    now_iso   = datetime.utcnow().isoformat()
+
+    conn = get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO users (username, password, api_key) VALUES (?,?,?)",
+            (username, hashed_pw, api_key),
+        )
+        new_user_id = cursor.lastrowid
+
+        # Give every new account a 'default' bucket immediately, matching
+        # what auto-creation on first upload would do — avoids an empty,
+        # bucket-less dashboard state for a brand-new user.
+        conn.execute(
+            "INSERT INTO buckets (user_id, name, created_at) VALUES (?, 'default', ?)",
+            (new_user_id, now_iso),
+        )
+        conn.commit()
+
+        for tier_dir in TIER_DIRS.values():
+            os.makedirs(os.path.join(tier_dir, username, "default"), exist_ok=True)
+
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return templates.TemplateResponse(
+            request=request, name="signup.html",
+            context={"error": f"Username '{username}' is already taken."},
+            status_code=409,
+        )
+    except sqlite3.Error as exc:
+        conn.rollback()
+        return templates.TemplateResponse(
+            request=request, name="signup.html",
+            context={"error": f"Could not create account: {exc}"},
+            status_code=500,
+        )
+    finally:
+        conn.close()
+
+    # Auto-login — no reason to make someone re-enter credentials
+    # they just typed seconds earlier in the same form.
+    request.session["user_id"]  = new_user_id
+    request.session["username"] = username
+    return RedirectResponse(url="/", status_code=302)
+
+
 @app.get("/logout", include_in_schema=False)
 def logout(request: Request):
     request.session.clear()
