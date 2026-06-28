@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>STRATA // LOGIN</title>
+  <title>STRATA // SIGN UP</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
   <style>
@@ -69,9 +69,9 @@
     input:focus {
       box-shadow: 6px 6px 0 var(--black);
     }
-    .btn-login {
+    .btn-signup {
       width: 100%;
-      background: var(--yellow);
+      background: var(--green);
       color: var(--black);
       border: 3px solid var(--black);
       box-shadow: 5px 5px 0 var(--black);
@@ -84,8 +84,8 @@
       cursor: pointer;
       transition: transform 0.08s, box-shadow 0.08s;
     }
-    .btn-login:hover  { transform: translate(2px,2px); box-shadow: 3px 3px 0 var(--black); }
-    .btn-login:active { transform: translate(5px,5px); box-shadow: 0px 0px 0 var(--black); }
+    .btn-signup:hover  { transform: translate(2px,2px); box-shadow: 3px 3px 0 var(--black); }
+    .btn-signup:active { transform: translate(5px,5px); box-shadow: 0px 0px 0 var(--black); }
     .error-box {
       background: var(--magenta);
       color: white;
@@ -106,14 +106,13 @@
       color: #888;
       line-height: 1.8;
     }
-    .hint-box span { color: var(--green); font-weight: 700; }
-    .signup-link {
+    .login-link {
       text-align: center;
       margin-top: 16px;
       font-size: 0.75rem;
     }
-    .signup-link a {
-      color: var(--green);
+    .login-link a {
+      color: var(--yellow);
       text-decoration: underline;
       font-weight: 700;
     }
@@ -135,7 +134,7 @@
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
           <div style="width:8px;height:8px;background:var(--green);border:2px solid var(--black);"></div>
           <span style="font-size:0.65rem;color:var(--green);font-weight:700;letter-spacing:0.15em;">
-            SECURE TENANT LOGIN
+            CREATE A NEW TENANT ACCOUNT
           </span>
         </div>
       </div>
@@ -149,46 +148,59 @@
         </div>
         {% endif %}
 
-        <form method="POST" action="/login">
+        <form method="POST" action="/signup">
 
-          <label for="username">Tenant Username</label>
+          <label for="username">Choose a Username</label>
           <input
             type="text"
             id="username"
             name="username"
-            placeholder="e.g. alice_dev"
+            placeholder="e.g. dave_dev"
             autocomplete="username"
+            pattern="[a-zA-Z0-9_]{3,32}"
+            title="3-32 characters: letters, numbers, underscores only"
             required
           />
 
-          <label for="password">Password</label>
+          <label for="password">Choose a Password</label>
           <input
             type="password"
             id="password"
             name="password"
-            placeholder="••••••••"
-            autocomplete="current-password"
+            placeholder="Minimum 8 characters"
+            autocomplete="new-password"
+            minlength="8"
             required
           />
 
-          <button type="submit" class="btn-login">
-            ▶ ACCESS STORAGE CONSOLE
+          <label for="confirm_password">Confirm Password</label>
+          <input
+            type="password"
+            id="confirm_password"
+            name="confirm_password"
+            placeholder="Re-enter your password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+          />
+
+          <button type="submit" class="btn-signup">
+            ▶ CREATE ACCOUNT
           </button>
 
         </form>
 
-        <div class="signup-link">
-          New tenant? <a href="/signup">Create an account →</a>
+        <div class="login-link">
+          Already have an account? <a href="/login">Log in →</a>
         </div>
 
-        <!-- Dev hint — remove in production -->
         <div class="hint-box">
           <div style="color:var(--yellow);font-weight:700;letter-spacing:0.1em;margin-bottom:6px;">
-            DEV CREDENTIALS
+            WHAT YOU GET
           </div>
-          <span>alice_dev</span> / <span>alice123</span><br/>
-          <span>bob_staging</span> / <span>bob456</span><br/>
-          <span>carol_prod</span> / <span>carol789</span>
+          A new tenant account with isolated storage, a default bucket,
+          a private API key, and your own usage-based billing — completely
+          separate from every other tenant on STRATA.
         </div>
 
       </div>
