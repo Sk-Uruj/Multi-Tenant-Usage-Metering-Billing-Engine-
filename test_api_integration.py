@@ -210,6 +210,136 @@ class TestAuthentication:
 
 
 # ---------------------------------------------------------------------------
+# Signup
+# ---------------------------------------------------------------------------
+
+class TestSignup:
+
+    def test_successful_signup_auto_logs_in_and_redirects_to_dashboard(self, client):
+        response = client.post(
+            "/signup",
+            data={
+                "username": "brandnewuser",
+                "password": "securepass123",
+                "confirm_password": "securepass123",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 302
+        assert response.headers["location"] == "/"
+
+    def test_signup_creates_bcrypt_hashed_password_not_plaintext(self, client):
+        client.post(
+            "/signup",
+            data={
+                "username": "hashcheck",
+                "password": "securepass123",
+                "confirm_password": "securepass123",
+            },
+        )
+        conn = sqlite3.connect(strata_main.DB_NAME)
+        row = conn.execute(
+            "SELECT password FROM users WHERE username='hashcheck'"
+        ).fetchone()
+        conn.close()
+        assert row[0] != "securepass123"
+        assert row[0].startswith(("$2a$", "$2b$", "$2y$"))
+
+    def test_signup_creates_default_bucket_immediately(self, client):
+        client.post(
+            "/signup",
+            data={
+                "username": "bucketcheck",
+                "password": "securepass123",
+                "confirm_password": "securepass123",
+            },
+        )
+        conn = sqlite3.connect(strata_main.DB_NAME)
+        user_id = conn.execute(
+            "SELECT id FROM users WHERE username='bucketcheck'"
+        ).fetchone()[0]
+        bucket = conn.execute(
+            "SELECT name FROM buckets WHERE user_id=?", (user_id,)
+        ).fetchone()
+        conn.close()
+        assert bucket is not None
+        assert bucket[0] == "default"
+
+    def test_duplicate_username_rejected(self, client):
+        client.post(
+            "/signup",
+            data={
+                "username": "duplicatecheck",
+                "password": "securepass123",
+                "confirm_password": "securepass123",
+            },
+        )
+        response = client.post(
+            "/signup",
+            data={
+                "username": "duplicatecheck",
+                "password": "differentpass456",
+                "confirm_password": "differentpass456",
+            },
+        )
+        assert response.status_code == 409
+
+    def test_password_under_8_characters_rejected(self, client):
+        response = client.post(
+            "/signup",
+            data={
+                "username": "shortpwcheck",
+                "password": "short",
+                "confirm_password": "short",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_mismatched_passwords_rejected(self, client):
+        response = client.post(
+            "/signup",
+            data={
+                "username": "mismatchcheck",
+                "password": "securepass123",
+                "confirm_password": "differentpass456",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_invalid_username_characters_rejected(self, client):
+        response = client.post(
+            "/signup",
+            data={
+                "username": "bad user!",
+                "password": "securepass123",
+                "confirm_password": "securepass123",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_signup_then_logout_then_login_with_same_credentials_works(self, client):
+        """End-to-end: signup, log out, log back in with the exact same
+        credentials — proving the stored hash genuinely round-trips."""
+        client.post(
+            "/signup",
+            data={
+                "username": "roundtripuser",
+                "password": "mypassword123",
+                "confirm_password": "mypassword123",
+            },
+        )
+        client.get("/logout")
+
+        login_response = client.post(
+            "/login",
+            data={"username": "roundtripuser", "password": "mypassword123"},
+            follow_redirects=False,
+        )
+        assert login_response.status_code == 302
+        assert login_response.headers["location"] == "/"
+
+
+# ---------------------------------------------------------------------------
 # Bucket operations
 # ---------------------------------------------------------------------------
 
