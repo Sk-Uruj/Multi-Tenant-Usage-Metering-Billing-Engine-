@@ -27,6 +27,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main as strata_main
+import config as strata_config
+import database as strata_db
 
 
 # ---------------------------------------------------------------------------
@@ -42,6 +44,11 @@ def client(tmp_path, monkeypatch):
     Returns a ready-to-use TestClient pointed at the real FastAPI app.
     """
     db_path = tmp_path / "test_cloud_storage.db"
+
+    # Patch DB_NAME on config (the single source of truth) — database.py
+    # reads config.DB_NAME at call time so this propagates automatically.
+    # Also patch main.DB_NAME for any direct references remaining there.
+    monkeypatch.setattr(strata_config, "DB_NAME", str(db_path))
     monkeypatch.setattr(strata_main, "DB_NAME", str(db_path))
 
     tier_dirs = {}
@@ -50,6 +57,7 @@ def client(tmp_path, monkeypatch):
         d.mkdir(parents=True)
         tier_dirs[tier] = str(d)
     monkeypatch.setattr(strata_main, "TIER_DIRS", tier_dirs)
+    monkeypatch.setattr(strata_config, "TIER_DIRS", tier_dirs)
 
     conn = sqlite3.connect(str(db_path))
     conn.executescript("""
