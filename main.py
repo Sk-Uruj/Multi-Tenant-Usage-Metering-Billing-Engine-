@@ -20,12 +20,8 @@ import bcrypt
 import hashlib
 import mimetypes
 import time
-import secrets
 from datetime import datetime
 from typing import Annotated
-
-from dotenv import load_dotenv
-load_dotenv()  # reads .env file in the project root, if present
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -33,91 +29,23 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
-DB_NAME = "cloud_storage.db"
-
-# SESSION_SECRET is read from the SESSION_SECRET environment variable
-# (typically set via a .env file — see .env.example for the format).
-# If it's not set anywhere, we generate a random secret for THIS RUN ONLY
-# and print a loud warning — every server restart would otherwise
-# invalidate all existing sessions, forcing everyone to log in again.
-# Always set SESSION_SECRET explicitly outside of local development.
-SESSION_SECRET = os.getenv("SESSION_SECRET")
-if not SESSION_SECRET:
-    SESSION_SECRET = secrets.token_hex(32)
-    print(
-        "\n  [WARNING] SESSION_SECRET not set in environment or .env file.\n"
-        "  Generated a temporary random secret for this run only —\n"
-        "  all existing sessions will be invalidated on next restart.\n"
-        "  Set SESSION_SECRET in a .env file to fix this. See .env.example.\n"
-    )
-
-# AWS S3 Glacier / Azure Archive tier both have real rehydration delays
-# before an archived object becomes downloadable again (hours, in production).
-# This simulates that wait on a demo-friendly timescale.
-ARCHIVE_RETRIEVAL_DELAY_SECS = 6
-
-TIER_DIRS = {
-    "HOT":     "storage/hot",
-    "COOL":    "storage/cool",
-    "COLD":    "storage/cold",
-    "ARCHIVE": "storage/archive",
-}
-
-TIER_RATES = {
-    "HOT":     0.001000,
-    "COOL":    0.000400,
-    "COLD":    0.000200,
-    "ARCHIVE": 0.000050,
-}
-
-TIER_STYLES = {
-    "HOT":     {"bg": "#FF2D6B", "color": "#fff"},
-    "COOL":    {"bg": "#0057FF", "color": "#fff"},
-    "COLD":    {"bg": "#00FFD1", "color": "#000"},
-    "ARCHIVE": {"bg": "#888",    "color": "#fff"},
-}
-
-REQUEST_RATES = {
-    "A":    0.005  / 1000,
-    "B":    0.0004 / 1000,
-    "FREE": 0.0,
-}
-
-# IBM COS egress: $0.0087/GB = $0.0087/1024 per MB
-BANDWIDTH_RATE_PER_MB = 0.0087 / 1024
-
-# ---------------------------------------------------------------------------
-# Currency conversion — INR
-# Set USD_TO_INR env variable to override. Default: 83.5
-# ---------------------------------------------------------------------------
-USD_TO_INR = float(os.getenv("USD_TO_INR", "83.5"))
-
-for k in list(TIER_RATES.keys()):
-    TIER_RATES[k] = round(TIER_RATES[k] * USD_TO_INR, 9)
-
-for k in list(REQUEST_RATES.keys()):
-    REQUEST_RATES[k] = REQUEST_RATES[k] * USD_TO_INR
-
-BANDWIDTH_RATE_PER_MB = BANDWIDTH_RATE_PER_MB * USD_TO_INR
+from config import (
+    DB_NAME,
+    SESSION_SECRET,
+    ARCHIVE_RETRIEVAL_DELAY_SECS,
+    TIER_DIRS,
+    TIER_RATES,
+    TIER_STYLES,
+    REQUEST_RATES,
+    BANDWIDTH_RATE_PER_MB,
+    USD_TO_INR,
+)
+from database import get_conn
 
 # ---------------------------------------------------------------------------
 app = FastAPI(title="STRATA — Multi-Tenant Cloud Storage Engine", version="0.9.1")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
 templates = Jinja2Templates(directory="templates")
-
-# ---------------------------------------------------------------------------
-# DB helper
-# ---------------------------------------------------------------------------
-
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
 
 # ---------------------------------------------------------------------------
 # Request logging middleware
